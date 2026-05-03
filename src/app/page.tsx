@@ -1,11 +1,19 @@
-export default function Home() {
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-[#0F1B2D]">
-      <div className="text-center">
-        <h1 className="text-5xl font-bold text-white mb-4">Meridian</h1>
-        <p className="text-[#1D6FA4] text-xl">Project Intelligence System</p>
-        <p className="text-gray-400 mt-4 text-sm">Phase 1 完了 — Phase 2: Auth 実装中...</p>
-      </div>
-    </main>
-  );
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+
+export default async function Home() {
+  // 初回セットアップチェック
+  const userCount = await prisma.user.count();
+  if (userCount === 0) {
+    redirect("/setup");
+  }
+
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  // ダッシュボードへ（Phase 3で実装）
+  redirect("/dashboard");
 }
