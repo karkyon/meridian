@@ -22,11 +22,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!parsed.success) return null;
 
         const { email, password } = parsed.data;
-
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user || !user.isActive) return null;
 
-        // ロックチェック
         if (user.lockedUntil && user.lockedUntil > new Date()) {
           throw new Error("ACCOUNT_LOCKED");
         }
@@ -34,7 +32,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await compare(password, user.passwordHash);
 
         if (!valid) {
-          // 失敗カウントインクリメント
           const newCount = user.failedLoginCount + 1;
           const lockedUntil = newCount >= 5
             ? new Date(Date.now() + 30 * 60 * 1000)
@@ -52,7 +49,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw new Error("INVALID_CREDENTIALS");
         }
 
-        // ログイン成功: カウントリセット
         await prisma.user.update({
           where: { id: user.id },
           data: {
@@ -73,39 +69,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30日
+    maxAge: 30 * 24 * 60 * 60,
   },
   pages: {
     signIn: "/login",
     error: "/login",
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.role = (user as { role: string }).role;
+        token.id = user.id as string;
+        token.role = (user as unknown as { role: string }).role;
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id as string;
-        (session.user as { role: string }).role = token.role as string;
+        (session.user as unknown as { id: string }).id = token.id as string;
+        (session.user as unknown as { role: string }).role = token.role as string;
       }
       return session;
     },
   },
 });
-
-// Session型拡張
-declare module "next-auth" {
-  interface User {
-    role: string;
-  }
-}
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string;
-    role: string;
-  }
-}

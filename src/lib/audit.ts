@@ -9,7 +9,7 @@ export interface AuditLogParams {
 }
 export async function writeAuditLog(params: AuditLogParams): Promise<void> {
   try {
-    await prisma.auditLog.create({ data: { ...params, resourceType: params.resourceType ?? null, resourceId: params.resourceId ?? null, resourceName: params.resourceName ?? null, oldValues: params.oldValues ?? undefined, newValues: params.newValues ?? undefined, userAgent: params.userAgent ?? null } });
+    await prisma.auditLog.create({ data: { ...params, resourceType: params.resourceType ?? null, resourceId: params.resourceId ?? null, resourceName: params.resourceName ?? null, oldValues: params.oldValues ? (params.oldValues as object) : undefined, newValues: params.newValues ? (params.newValues as object) : undefined, userAgent: params.userAgent ?? null } });
   } catch (e) { console.error("[AuditLog] Failed:", e); }
 }
 export const getClientIp = (req: NextRequest): string =>
