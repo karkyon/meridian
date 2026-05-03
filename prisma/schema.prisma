@@ -1,0 +1,371 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector"), pgcrypto]
+}
+
+enum UserRole {
+  admin
+  viewer
+  @@map("user_role")
+}
+
+enum ProjectStatus {
+  planning
+  active
+  paused
+  completed
+  @@map("project_status")
+}
+
+enum DocType {
+  planning
+  requirements
+  external_spec
+  db_spec
+  api_spec
+  @@map("doc_type")
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  done
+  blocked
+  @@map("task_status")
+}
+
+enum TaskPriority {
+  high
+  mid
+  low
+  @@map("task_priority")
+}
+
+enum DelayRisk {
+  none
+  low
+  medium
+  high
+  @@map("delay_risk")
+}
+
+enum HealthStatus {
+  latest
+  minor_behind
+  major_behind
+  deprecated
+  eol
+  @@map("health_status")
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+  critical
+  @@map("risk_level")
+}
+
+enum DependencyRelation {
+  depends_on
+  shares_code
+  similar_domain
+  @@map("dependency_relation")
+}
+
+enum AuditAction {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGIN_LOCKED
+  LOGOUT
+  PROJECT_CREATE
+  PROJECT_UPDATE
+  PROJECT_DELETE
+  DOCUMENT_SAVE
+  DOCUMENT_AI_GENERATE
+  WBS_TASK_CREATE
+  WBS_TASK_UPDATE
+  WBS_TASK_DELETE
+  PRIORITY_UPDATE
+  USER_CREATE
+  USER_DELETE
+  USER_ROLE_CHANGE
+  USER_UNLOCK
+  SESSION_REVOKE
+  SETTINGS_UPDATE
+  API_KEY_UPDATE
+  @@map("audit_action")
+}
+
+model User {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String    @unique @db.VarChar(255)
+  passwordHash     String    @map("password_hash") @db.VarChar(255)
+  name             String    @db.VarChar(100)
+  role             UserRole  @default(viewer)
+  isActive         Boolean   @default(true) @map("is_active")
+  failedLoginCount Int       @default(0) @map("failed_login_count")
+  lockedUntil      DateTime? @map("locked_until") @db.Timestamptz
+  lastLoginAt      DateTime? @map("last_login_at") @db.Timestamptz
+  lastLoginIp      String?   @map("last_login_ip") @db.VarChar(45)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  sessions       Session[]
+  auditLogs      AuditLog[]
+  createdProjects Project[]       @relation("ProjectCreatedBy")
+  savedDocuments  Document[]      @relation("DocumentUpdatedBy")
+  priorityScores  PriorityScore[] @relation("PriorityCreatedBy")
+
+  @@index([email], map: "idx_users_email")
+  @@index([lockedUntil], map: "idx_users_locked_until")
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionToken String   @unique @map("session_token") @db.VarChar(255)
+  userId       String   @map("user_id") @db.Uuid
+  userAgent    String?  @map("user_agent") @db.Text
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  expires      DateTime @db.Timestamptz
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionToken], map: "idx_sessions_token")
+  @@index([userId], map: "idx_sessions_user_id")
+  @@index([expires], map: "idx_sessions_expires")
+  @@map("sessions")
+}
+
+model AuditLog {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String      @map("user_id") @db.Uuid
+  userEmail    String      @map("user_email") @db.VarChar(255)
+  action       AuditAction
+  resourceType String?     @map("resource_type") @db.VarChar(50)
+  resourceId   String?     @map("resource_id") @db.Uuid
+  resourceName String?     @map("resource_name") @db.VarChar(255)
+  oldValues    Json?       @map("old_values") @db.JsonB
+  newValues    Json?       @map("new_values") @db.JsonB
+  ipAddress    String      @map("ip_address") @db.VarChar(45)
+  userAgent    String?     @map("user_agent") @db.Text
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "idx_audit_logs_user_id")
+  @@index([createdAt(sort: Desc)], map: "idx_audit_logs_created_at")
+  @@index([action], map: "idx_audit_logs_action")
+  @@map("audit_logs")
+}
+
+model Settings {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  claudeApiKeyEncrypted String?  @map("claude_api_key_encrypted") @db.Text
+  keyIv                 String?  @map("key_iv") @db.VarChar(32)
+  weeklySummaryDay      String   @default("monday") @map("weekly_summary_day") @db.VarChar(10)
+  focusModeCount        Int      @default(3) @map("focus_mode_count")
+  sessionTimeoutHours   Int      @default(8) @map("session_timeout_hours")
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("settings")
+}
+
+model Project {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String        @db.VarChar(255)
+  description     String?       @db.Text
+  status          ProjectStatus @default(planning)
+  category        String?       @db.VarChar(100)
+  techStack       Json          @default("[]") @map("tech_stack") @db.JsonB
+  repositoryUrl   String?       @map("repository_url") @db.VarChar(500)
+  notes           String?       @db.Text
+  priorityScore   Int           @default(50) @map("priority_score")
+  priorityOrder   Int           @default(0) @map("priority_order")
+  progressCache   Decimal       @default(0) @map("progress_cache") @db.Decimal(5, 2)
+  docCompleteness Decimal       @default(0) @map("doc_completeness") @db.Decimal(5, 2)
+  healthScore     Int?          @map("health_score")
+  delayRisk       DelayRisk?    @map("delay_risk")
+  createdBy       String?       @map("created_by") @db.Uuid
+  archivedAt      DateTime?     @map("archived_at") @db.Timestamptz
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  creator        User?               @relation("ProjectCreatedBy", fields: [createdBy], references: [id])
+  documents      Document[]
+  wbsPhases      WbsPhase[]
+  priorityScores PriorityScore[]
+  healthScores   HealthScore[]
+  dependsOn      ProjectDependency[] @relation("DependingProject")
+  dependedOnBy   ProjectDependency[] @relation("DependedOnProject")
+
+  @@index([status], map: "idx_projects_status")
+  @@index([priorityOrder], map: "idx_projects_priority_order")
+  @@index([updatedAt(sort: Desc)], map: "idx_projects_updated_at")
+  @@map("projects")
+}
+
+model Document {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId          String   @map("project_id") @db.Uuid
+  docType            DocType  @map("doc_type")
+  content            String?  @db.Text
+  completeness       Int      @default(0)
+  aiGenerated        Boolean  @default(false) @map("ai_generated")
+  aiPromptHint       String?  @map("ai_prompt_hint") @db.Text
+  version            Int      @default(1)
+  updatedBy          String?  @map("updated_by") @db.Uuid
+  embeddingUpdatedAt DateTime? @map("embedding_updated_at") @db.Timestamptz
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  editor     User?             @relation("DocumentUpdatedBy", fields: [updatedBy], references: [id])
+  versions   DocumentVersion[]
+  embeddings RagEmbedding[]
+
+  @@unique([projectId, docType], map: "uq_documents_project_doc_type")
+  @@index([projectId, docType], map: "idx_documents_project_doc_type")
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  version    Int
+  content    String   @db.Text
+  aiGenerated Boolean @default(false) @map("ai_generated")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, version], map: "uq_document_versions_doc_ver")
+  @@index([documentId], map: "idx_document_versions_document_id")
+  @@map("document_versions")
+}
+
+model WbsPhase {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  color       String?  @default("#1D6FA4") @db.VarChar(7)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   WbsTask[]
+
+  @@index([projectId, sortOrder], map: "idx_wbs_phases_project_sort")
+  @@map("wbs_phases")
+}
+
+model WbsTask {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  phaseId        String       @map("phase_id") @db.Uuid
+  title          String       @db.VarChar(500)
+  description    String?      @db.Text
+  status         TaskStatus   @default(todo)
+  priority       TaskPriority @default(mid)
+  dueDate        DateTime?    @map("due_date") @db.Date
+  estimatedHours Decimal?     @map("estimated_hours") @db.Decimal(5, 1)
+  sortOrder      Int          @default(0) @map("sort_order")
+  aiGenerated    Boolean      @default(false) @map("ai_generated")
+  completedAt    DateTime?    @map("completed_at") @db.Timestamptz
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  phase WbsPhase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+  @@index([phaseId], map: "idx_wbs_tasks_phase_id")
+  @@index([status], map: "idx_wbs_tasks_status")
+  @@index([dueDate], map: "idx_wbs_tasks_due_date")
+  @@map("wbs_tasks")
+}
+
+model RagEmbedding {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  chunkIndex Int      @map("chunk_index")
+  chunkText  String   @map("chunk_text") @db.Text
+  embedding  Unsupported("vector(1536)")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex], map: "uq_rag_embeddings_doc_chunk")
+  @@index([documentId], map: "idx_rag_embeddings_document_id")
+  @@map("rag_embeddings")
+}
+
+model PriorityScore {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  impact     Int
+  urgency    Int
+  learning   Int
+  cost       Int
+  motivation Int
+  totalScore Int      @map("total_score")
+  aiSuggested Boolean @default(false) @map("ai_suggested")
+  createdBy  String   @map("created_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator User    @relation("PriorityCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([projectId, createdAt(sort: Desc)], map: "idx_priority_scores_project_date")
+  @@map("priority_scores")
+}
+
+model HealthScore {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId      String       @map("project_id") @db.Uuid
+  techName       String       @map("tech_name") @db.VarChar(100)
+  currentVersion String?      @map("current_version") @db.VarChar(50)
+  latestVersion  String?      @map("latest_version") @db.VarChar(50)
+  status         HealthStatus @default(latest)
+  riskLevel      RiskLevel    @default(low) @map("risk_level")
+  notes          String?      @db.Text
+  evaluatedAt    DateTime     @map("evaluated_at") @db.Timestamptz
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId], map: "idx_health_scores_project_id")
+  @@map("health_scores")
+}
+
+model WeeklySummary {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  weekStart   DateTime @unique @map("week_start") @db.Date
+  content     String   @db.Text
+  focusTaskIds Json?   @map("focus_task_ids") @db.JsonB
+  generatedAt DateTime @map("generated_at") @db.Timestamptz
+
+  @@index([weekStart(sort: Desc)], map: "idx_weekly_summaries_week_start")
+  @@map("weekly_summaries")
+}
+
+model ProjectDependency {
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId    String             @map("project_id") @db.Uuid
+  dependsOnId  String             @map("depends_on_id") @db.Uuid
+  relationType DependencyRelation @default(depends_on) @map("relation_type")
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
+
+  project   Project @relation("DependingProject", fields: [projectId], references: [id], onDelete: Cascade)
+  dependsOn Project @relation("DependedOnProject", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, dependsOnId], map: "uq_project_dependencies")
+  @@index([projectId], map: "idx_project_deps_project_id")
+  @@index([dependsOnId], map: "idx_project_deps_depends_on_id")
+  @@map("project_dependencies")
+}
