@@ -10,8 +10,10 @@ type Params = { params: { id: string } };
 
 export async function GET(req: NextRequest, { params }: Params) {
   return withAuth(req, async () => {
+    const { searchParams } = req.nextUrl;
+    const docTypeFilter = searchParams.get("doc_type");
     const attachments = await prisma.projectAttachment.findMany({
-      where: { projectId: params.id },
+      where: { projectId: params.id, ...(docTypeFilter ? { docType: docTypeFilter } : {}) },
       orderBy: { createdAt: "desc" },
       select: {
         id: true, filename: true, originalName: true, fileType: true,
@@ -83,6 +85,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         fileSize: file.size,
         storagePath,
         description: description || null,
+      docType: (formData.get('doc_type') as string | null) || null,
         extractedText: extractedText || null,
         createdBy: user.id,
       },

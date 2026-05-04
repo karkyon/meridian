@@ -1,5 +1,7 @@
 "use client";
 
+import DocumentUploadButton from "@/components/documents/DocumentUploadButton";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -240,10 +242,19 @@ export default function ProjectDetailClient({
                     <span className="text-[10px] text-slate-300">v{doc.version}</span>
                   </div>
                 </div>
-                <Link href={`/projects/${project.id}/documents/${doc.docType}`}
-                  className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50">
-                  {isAdmin ? "編集" : "閲覧"}
-                </Link>
+                <div className="flex gap-1.5">
+                  {isAdmin && (
+                    <DocumentUploadButton
+                      projectId={project.id}
+                      docType={doc.docType}
+                      docTypeLabel={DOC_TYPE_LABELS[doc.docType] ?? doc.docType}
+                    />
+                  )}
+                  <Link href={`/projects/${project.id}/documents/${doc.docType}`}
+                    className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50">
+                    {isAdmin ? "編集" : "閲覧"}
+                  </Link>
+                </div>
               </div>
               <div className="mt-2 h-1 bg-slate-100 rounded-full overflow-hidden">
                 <div className="h-full bg-[#1D6FA4] rounded-full" style={{ width: `${doc.completeness}%` }} />
@@ -329,7 +340,7 @@ export default function ProjectDetailClient({
         <div className="max-w-3xl space-y-3">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs text-slate-500">Word / PDF / Markdownを保管し、AI生成の参照資料として活用できます</p>
-            <a href={`/projects/${project.id}/attachments`} className="text-xs text-[#1D6FA4] hover:underline">全画面で管理 →</a>
+            <a href={`/projects/${project.id}/attachments`} className="text-xs text-[#1D6FA4] hover:underline">参考資料を管理 →</a>
           </div>
         </div>
       )}

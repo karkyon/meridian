@@ -79,14 +79,13 @@ export async function extractTextFromBuffer(
     }
 
     if (fileType === "pdf") {
-      // PDFはテキスト抽出が複雑なため、ファイル名とサイズのみ記録
-      // 本格的にはpdf-parse等を使用
       try {
-        const pdfParse = await import("pdf-parse");
-        const data = await pdfParse.default(buffer);
-        return data.text;
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const pdfParse = require("pdf-parse");
+        const data = await pdfParse(buffer);
+        return data.text ?? "";
       } catch {
-        return `[PDF: ${filename} - テキスト抽出には pdf-parse パッケージが必要です]`;
+        return `[PDF: ${filename} のテキスト抽出に失敗しました。内容を手動で入力してください]`;
       }
     }
 

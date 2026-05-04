@@ -23,9 +23,10 @@ function formatSize(bytes: number): string {
 }
 
 export default function AttachmentsManager({
-  projectId, initialAttachments, role,
+  projectId, initialAttachments, role, docType,
 }: {
   projectId: string; initialAttachments: Attachment[]; role: string;
+  docType?: string;
 }) {
   const isAdmin = role === "admin";
   const [attachments, setAttachments] = useState(initialAttachments);
@@ -42,6 +43,7 @@ export default function AttachmentsManager({
     const formData = new FormData();
     formData.append("file", file);
     if (description.trim()) formData.append("description", description.trim());
+    if (docType) formData.append("doc_type", docType);
 
     const res = await fetch(`/api/projects/${projectId}/attachments`, {
       method: "POST",

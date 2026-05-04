@@ -123,6 +123,8 @@ model User {
   savedDocuments  Document[]      @relation("DocumentUpdatedBy")
   priorityScores  PriorityScore[] @relation("PriorityCreatedBy")
   uploadedAttachments ProjectAttachment[] @relation("AttachmentCreatedBy")
+  createdCustomDocs   CustomDocument[]     @relation("CustomDocCreatedBy")
+  uploadedCustomFiles CustomDocumentFile[] @relation("CustomDocFileCreatedBy")
 
   @@index([email], map: "idx_users_email")
   @@index([lockedUntil], map: "idx_users_locked_until")
@@ -208,6 +210,8 @@ model Project {
   dependsOn      ProjectDependency[] @relation("DependingProject")
   dependedOnBy   ProjectDependency[] @relation("DependedOnProject")
   attachments    ProjectAttachment[]
+  projectCustomDocTypes ProjectCustomDocType[]
+  customDocuments       CustomDocument[]
 
   @@index([status], map: "idx_projects_status")
   @@index([priorityOrder], map: "idx_projects_priority_order")
@@ -394,6 +398,7 @@ model ProjectAttachment {
   storagePath        String         @map("storage_path") @db.VarChar(500)
   description        String?        @db.Text
   extractedText      String?        @map("extracted_text") @db.Text
+  docType            String?        @map("doc_type") @db.VarChar(50)
   usedForGeneration  Boolean        @default(false) @map("used_for_generation")
   createdBy          String?        @map("created_by") @db.Uuid
   createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz
@@ -404,4 +409,93 @@ model ProjectAttachment {
   @@index([projectId], map: "idx_project_attachments_project_id")
   @@index([createdAt(sort: Desc)], map: "idx_project_attachments_created_at")
   @@map("project_attachments")
+}
+
+model CustomDocType {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique @db.VarChar(100)
+  label       String   @db.VarChar(200)
+  description String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  customDocuments CustomDocument[]
+
+  @@index([sortOrder], map: "idx_custom_doc_types_sort")
+  @@map("custom_doc_types")
+}
+
+model ProjectCustomDocType {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  key         String   @db.VarChar(100)
+  label       String   @db.VarChar(200)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, key], map: "project_custom_doc_types_project_key_uq")
+  @@index([projectId], map: "idx_project_custom_doc_types_project")
+  @@map("project_custom_doc_types")
+}
+
+model CustomDocument {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId        String   @map("project_id") @db.Uuid
+  customTypeKey    String   @map("custom_type_key") @db.VarChar(100)
+  customTypeLabel  String   @map("custom_type_label") @db.VarChar(200)
+  content          String?  @db.Text
+  completeness     Int      @default(0)
+  version          Int      @default(1)
+  aiGenerated      Boolean  @default(false) @map("ai_generated")
+  createdBy        String?  @map("created_by") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  project       Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator       User?                  @relation("CustomDocCreatedBy", fields: [createdBy], references: [id])
+  customDocType CustomDocType?         @relation(fields: [customTypeKey], references: [key])
+  files    CustomDocumentFile[]
+  versions CustomDocumentVersion[]
+
+  @@unique([projectId, customTypeKey], map: "custom_documents_project_type_uq")
+  @@index([projectId], map: "idx_custom_documents_project")
+  @@map("custom_documents")
+}
+
+model CustomDocumentFile {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customDocId   String   @map("custom_doc_id") @db.Uuid
+  filename      String   @db.VarChar(255)
+  originalName  String   @map("original_name") @db.VarChar(255)
+  fileType      String   @default("other") @map("file_type") @db.VarChar(20)
+  mimeType      String   @map("mime_type") @db.VarChar(100)
+  fileSize      Int      @map("file_size")
+  storagePath   String   @map("storage_path") @db.VarChar(500)
+  extractedText String?  @map("extracted_text") @db.Text
+  isEditable    Boolean  @default(false) @map("is_editable")
+  createdBy     String?  @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  customDoc CustomDocument @relation(fields: [customDocId], references: [id], onDelete: Cascade)
+  uploader  User?          @relation("CustomDocFileCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([customDocId], map: "idx_custom_document_files_doc")
+  @@map("custom_document_files")
+}
+
+model CustomDocumentVersion {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customDocId  String   @map("custom_doc_id") @db.Uuid
+  version      Int
+  content      String?  @db.Text
+  aiGenerated  Boolean  @default(false) @map("ai_generated")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  customDoc CustomDocument @relation(fields: [customDocId], references: [id], onDelete: Cascade)
+
+  @@index([customDocId, version], map: "idx_custom_document_versions_doc")
+  @@map("custom_document_versions")
 }

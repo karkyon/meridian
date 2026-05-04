@@ -4,9 +4,10 @@ import { notFound } from "next/navigation";
 import TopBar from "@/components/layout/TopBar";
 import AttachmentsManager from "@/components/attachments/AttachmentsManager";
 
-type Params = { params: { id: string } };
+type Params = { params: { id: string }; searchParams: { doc_type?: string } };
 
-export default async function AttachmentsPage({ params }: Params) {
+export default async function AttachmentsPage({ params, searchParams }: Params) {
+  const docTypeFilter = searchParams.doc_type;
   const session = await auth();
   const role = (session?.user as { role?: string })?.role ?? "viewer";
 
@@ -17,7 +18,7 @@ export default async function AttachmentsPage({ params }: Params) {
   if (!project) notFound();
 
   const attachments = await prisma.projectAttachment.findMany({
-    where: { projectId: params.id },
+    where: { projectId: params.id, ...(docTypeFilter ? { docType: docTypeFilter } : {}) },
     orderBy: { createdAt: "desc" },
     select: {
       id: true, filename: true, originalName: true, fileType: true,
@@ -39,7 +40,8 @@ export default async function AttachmentsPage({ params }: Params) {
         </div>
         <AttachmentsManager
           projectId={params.id}
-          initialAttachments={attachments.map((a) => ({
+          docType={docTypeFilter}
+        initialAttachments={attachments.map((a) => ({
             ...a,
             createdAt: a.createdAt.toISOString(),
           }))}
