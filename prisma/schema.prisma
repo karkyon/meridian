@@ -125,6 +125,7 @@ model User {
   uploadedAttachments ProjectAttachment[] @relation("AttachmentCreatedBy")
   createdCustomDocs   CustomDocument[]     @relation("CustomDocCreatedBy")
   uploadedCustomFiles CustomDocumentFile[] @relation("CustomDocFileCreatedBy")
+  uploadedDocFiles    DocumentFile[]       @relation("DocFileCreatedBy")
 
   @@index([email], map: "idx_users_email")
   @@index([lockedUntil], map: "idx_users_locked_until")
@@ -236,6 +237,7 @@ model Document {
   project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   editor     User?             @relation("DocumentUpdatedBy", fields: [updatedBy], references: [id])
   versions   DocumentVersion[]
+  files      DocumentFile[]
   embeddings RagEmbedding[]
 
   @@unique([projectId, docType], map: "uq_documents_project_doc_type")
@@ -498,4 +500,25 @@ model CustomDocumentVersion {
 
   @@index([customDocId, version], map: "idx_custom_document_versions_doc")
   @@map("custom_document_versions")
+}
+
+model DocumentFile {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId   String   @map("document_id") @db.Uuid
+  filename     String   @db.VarChar(255)
+  originalName String   @map("original_name") @db.VarChar(255)
+  fileType     String   @default("other") @map("file_type") @db.VarChar(20)
+  mimeType     String   @map("mime_type") @db.VarChar(100)
+  fileSize     Int      @map("file_size")
+  storagePath  String   @map("storage_path") @db.VarChar(500)
+  extractedText String? @map("extracted_text") @db.Text
+  isEditable   Boolean  @default(false) @map("is_editable")
+  createdBy    String?  @map("created_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploader User?    @relation("DocFileCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([documentId], map: "idx_document_files_doc")
+  @@map("document_files")
 }

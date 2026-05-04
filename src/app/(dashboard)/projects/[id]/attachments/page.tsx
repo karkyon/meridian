@@ -31,7 +31,8 @@ export default async function AttachmentsPage({ params, searchParams }: Params) 
 
   return (
     <>
-      <TopBar title={`${project.name} — 添付資料ライブラリ`} />
+      <TopBar title={`${project.name} — 添付資料ライブラリ`}
+        backHref={`/projects/${params.id}`} backLabel="プロジェクトに戻る" />
       <main className="flex-1 p-6 max-w-3xl">
         <div className="mb-4">
           <p className="text-xs text-slate-500">

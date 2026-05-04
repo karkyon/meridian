@@ -6,16 +6,26 @@ import Link from "next/link";
 
 interface TopBarProps {
   title: string;
+  backHref?: string;
+  backLabel?: string;
   actions?: React.ReactNode;
 }
 
-export default function TopBar({ title, actions }: TopBarProps) {
+export default function TopBar({ title, backHref, backLabel, actions }: TopBarProps) {
   const { data: session } = useSession();
   const role = (session?.user as { role?: string })?.role;
 
   return (
     <header className="h-12 bg-white border-b border-slate-100 flex items-center px-5 gap-3 sticky top-0 z-10">
-      <h1 className="text-sm font-semibold text-[#1A3A5C]">{title}</h1>
+      {backHref && (
+        <Link href={backHref}
+          className="flex items-center gap-1 text-xs text-slate-400 hover:text-[#1D6FA4] px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors shrink-0">
+          <span className="text-base leading-none">‹</span>
+          <span>{backLabel ?? "戻る"}</span>
+        </Link>
+      )}
+      {backHref && <span className="text-slate-200">|</span>}
+      <h1 className="text-sm font-semibold text-[#1A3A5C] truncate">{title}</h1>
 
       {/* ロールバッジ */}
       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${

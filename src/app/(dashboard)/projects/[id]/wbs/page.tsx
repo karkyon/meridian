@@ -28,7 +28,8 @@ export default async function WbsPage({ params }: Params) {
 
   return (
     <>
-      <TopBar title={`${project.name} — WBS管理`} />
+      <TopBar title={`${project.name} — WBS管理`}
+        backHref={`/projects/${params.id}`} backLabel="プロジェクトに戻る" />
       <WbsManager
         projectId={params.id}
         projectName={project.name}

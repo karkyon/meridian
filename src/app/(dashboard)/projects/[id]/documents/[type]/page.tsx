@@ -38,7 +38,8 @@ export default async function DocumentPage({ params }: Params) {
 
   return (
     <>
-      <TopBar title={`${document.project.name} — ${DOC_LABELS[params.type as DocType]}`} />
+      <TopBar title={`${document.project.name} — ${DOC_LABELS[params.type as DocType]}`}
+        backHref={`/projects/${params.id}`} backLabel={document.project.name} />
       <DocumentEditor
         projectId={params.id}
         docType={params.type}

@@ -27,7 +27,8 @@ export default async function GeneratePage({ params }: Params) {
 
   return (
     <>
-      <TopBar title={`${project.name} — AI生成`} />
+      <TopBar title={`${project.name} — AI生成`}
+        backHref={`/projects/${params.id}`} backLabel="プロジェクトに戻る" />
       <GenerateClient project={project} hasApiKey={hasApiKey} />
     </>
   );
