@@ -50,7 +50,7 @@ type Project = {
   documents: Document[]; wbsPhases: Phase[];
 };
 
-const TABS = ["概要", "ドキュメント", "WBS"] as const;
+const TABS = ["概要", "ドキュメント", "WBS", "添付資料"] as const;
 
 export default function ProjectDetailClient({
   project,
@@ -324,6 +324,16 @@ export default function ProjectDetailClient({
           )}
         </div>
       )}
+      {/* 添付資料タブ */}
+      {tab === "添付資料" && (
+        <div className="max-w-3xl space-y-3">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs text-slate-500">Word / PDF / Markdownを保管し、AI生成の参照資料として活用できます</p>
+            <a href={`/projects/${project.id}/attachments`} className="text-xs text-[#1D6FA4] hover:underline">全画面で管理 →</a>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }

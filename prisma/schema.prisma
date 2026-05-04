@@ -122,6 +122,7 @@ model User {
   createdProjects Project[]       @relation("ProjectCreatedBy")
   savedDocuments  Document[]      @relation("DocumentUpdatedBy")
   priorityScores  PriorityScore[] @relation("PriorityCreatedBy")
+  uploadedAttachments ProjectAttachment[] @relation("AttachmentCreatedBy")
 
   @@index([email], map: "idx_users_email")
   @@index([lockedUntil], map: "idx_users_locked_until")
@@ -206,6 +207,7 @@ model Project {
   healthScores   HealthScore[]
   dependsOn      ProjectDependency[] @relation("DependingProject")
   dependedOnBy   ProjectDependency[] @relation("DependedOnProject")
+  attachments    ProjectAttachment[]
 
   @@index([status], map: "idx_projects_status")
   @@index([priorityOrder], map: "idx_projects_priority_order")
@@ -368,4 +370,38 @@ model ProjectDependency {
   @@index([projectId], map: "idx_project_deps_project_id")
   @@index([dependsOnId], map: "idx_project_deps_depends_on_id")
   @@map("project_dependencies")
+}
+
+// prisma/schema.prisma に追記するモデル定義
+// 既存ファイルの末尾に追加してください
+
+enum AttachmentType {
+  word
+  pdf
+  markdown
+  other
+  @@map("attachment_type")
+}
+
+model ProjectAttachment {
+  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId          String         @map("project_id") @db.Uuid
+  filename           String         @db.VarChar(255)
+  originalName       String         @map("original_name") @db.VarChar(255)
+  fileType           AttachmentType @default(other) @map("file_type")
+  mimeType           String         @map("mime_type") @db.VarChar(100)
+  fileSize           Int            @map("file_size")
+  storagePath        String         @map("storage_path") @db.VarChar(500)
+  description        String?        @db.Text
+  extractedText      String?        @map("extracted_text") @db.Text
+  usedForGeneration  Boolean        @default(false) @map("used_for_generation")
+  createdBy          String?        @map("created_by") @db.Uuid
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader  User?   @relation("AttachmentCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([projectId], map: "idx_project_attachments_project_id")
+  @@index([createdAt(sort: Desc)], map: "idx_project_attachments_created_at")
+  @@map("project_attachments")
 }
