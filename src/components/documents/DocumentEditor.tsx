@@ -10,11 +10,12 @@ import { useRouter } from "next/navigation";
 type Version = { version: number; createdAt: string; aiGenerated: boolean };
 
 export default function DocumentEditor({
-  projectId, docType, docTypeLabel,
+  projectId, docType, docTypeLabel, projectName,
   initialContent, initialCompleteness,
   version, aiGenerated, versions, role,
 }: {
   projectId: string; docType: string; docTypeLabel: string;
+  projectName?: string;
   initialContent: string; initialCompleteness: number;
   version: number; aiGenerated: boolean;
   versions: Version[]; role: string;
@@ -67,6 +68,14 @@ export default function DocumentEditor({
 
   return (
     <main className="flex-1 flex flex-col h-[calc(100vh-48px)]">
+      {/* パンくずナビ */}
+      <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border-b border-slate-100 text-xs text-slate-500">
+        <a href="/dashboard" className="hover:text-[#1D6FA4]">ダッシュボード</a>
+        <span>›</span>
+        <a href={`/projects/${projectId}`} className="hover:text-[#1D6FA4]">{projectName ?? "プロジェクト"}</a>
+        <span>›</span>
+        <span className="text-slate-700 font-medium">{docTypeLabel}</span>
+      </div>
       {/* ツールバー */}
       <div className="bg-white border-b border-slate-100 px-4 py-2 flex items-center gap-1 flex-wrap">
         {isAdmin && (

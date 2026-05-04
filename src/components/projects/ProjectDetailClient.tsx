@@ -53,7 +53,7 @@ type Project = {
   documents: Document[]; wbsPhases: Phase[];
 };
 
-const TABS = ["概要", "ドキュメント", "カスタムドキュメント", "WBS", "添付資料"] as const;
+const TABS = ["概要", "ドキュメント", "WBS", "添付資料"] as const;
 
 export default function ProjectDetailClient({
   project,
@@ -262,6 +262,12 @@ export default function ProjectDetailClient({
               </div>
             </div>
           ))}
+          <div className="flex items-center gap-3 mt-4 mb-2">
+            <div className="h-px flex-1 bg-slate-100" />
+            <span className="text-xs text-slate-400 font-medium">技術・設計ドキュメント</span>
+            <div className="h-px flex-1 bg-slate-100" />
+          </div>
+          <CustomDocsTab projectId={project.id} role={role} />
         </div>
       )}
 
@@ -336,12 +342,7 @@ export default function ProjectDetailClient({
           )}
         </div>
       )}
-      {/* カスタムドキュメントタブ */}
-      {tab === "カスタムドキュメント" && (
-        <div className="max-w-3xl">
-          <CustomDocsTab projectId={project.id} role={role} />
-        </div>
-      )}
+
 
       {/* 添付資料タブ */}
       {tab === "添付資料" && (

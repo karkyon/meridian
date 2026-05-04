@@ -31,11 +31,12 @@ function formatSize(bytes: number) {
 }
 
 export default function CustomDocEditor({
-  projectId, typeKey, typeLabel,
+  projectId, projectName, typeKey, typeLabel,
   initialContent, initialCompleteness, version,
   initialFiles, versions, role,
 }: {
   projectId: string;
+  projectName?: string;
   typeKey: string;
   typeLabel: string;
   initialContent: string;
@@ -115,6 +116,16 @@ export default function CustomDocEditor({
 
   return (
     <main className="flex-1 p-6 max-w-5xl mx-auto w-full">
+      {/* パンくずナビ */}
+      <div className="flex items-center gap-2 mb-4 text-xs text-slate-500">
+        <a href="/dashboard" className="hover:text-[#1D6FA4]">ダッシュボード</a>
+        <span>›</span>
+        <a href={`/projects/${projectId}`} className="hover:text-[#1D6FA4]">{projectName ?? "プロジェクト"}</a>
+        <span>›</span>
+        <a href={`/projects/${projectId}`} className="hover:text-[#1D6FA4]">ドキュメント</a>
+        <span>›</span>
+        <span className="text-slate-700 font-medium">{typeLabel}</span>
+      </div>
       {/* ヘッダー */}
       <div className="flex items-center justify-between mb-6">
         <div>

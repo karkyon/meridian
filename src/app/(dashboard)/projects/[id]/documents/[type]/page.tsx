@@ -43,6 +43,7 @@ export default async function DocumentPage({ params }: Params) {
         projectId={params.id}
         docType={params.type}
         docTypeLabel={DOC_LABELS[params.type as DocType]}
+        projectName={document.project.name}
         initialContent={document.content ?? ""}
         initialCompleteness={document.completeness}
         version={document.version}

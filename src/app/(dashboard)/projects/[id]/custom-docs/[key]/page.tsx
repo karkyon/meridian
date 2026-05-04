@@ -40,6 +40,7 @@ export default async function CustomDocPage({ params }: Params) {
       <TopBar title={`${project.name} — ${typeInfo.label}`} />
       <CustomDocEditor
         projectId={params.id}
+        projectName={project.name}
         typeKey={params.key}
         typeLabel={typeInfo.label}
         initialContent={doc?.content ?? ""}
