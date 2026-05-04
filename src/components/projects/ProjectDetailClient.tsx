@@ -1,6 +1,7 @@
 "use client";
 
 import DocumentUploadButton from "@/components/documents/DocumentUploadButton";
+import CustomDocsTab from "@/components/custom-docs/CustomDocsTab";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -335,6 +336,13 @@ export default function ProjectDetailClient({
           )}
         </div>
       )}
+      {/* カスタムドキュメントタブ */}
+      {tab === "カスタムドキュメント" && (
+        <div className="max-w-3xl">
+          <CustomDocsTab projectId={project.id} role={role} />
+        </div>
+      )}
+
       {/* 添付資料タブ */}
       {tab === "添付資料" && (
         <div className="max-w-3xl space-y-3">

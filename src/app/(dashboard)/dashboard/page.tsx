@@ -8,6 +8,7 @@ import Link from "next/link";
 
 export default async function DashboardPage() {
   const session = await auth();
+  if (!session?.user) { const { redirect } = await import("next/navigation"); redirect("/login"); }
   const user = session!.user as { id: string; role: string };
 
   const [projects, weeklySummary] = await Promise.all([

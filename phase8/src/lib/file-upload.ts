@@ -82,8 +82,9 @@ export async function extractTextFromBuffer(
       // PDFはテキスト抽出が複雑なため、ファイル名とサイズのみ記録
       // 本格的にはpdf-parse等を使用
       try {
-        const pdfParse = await import("pdf-parse");
-        const data = await pdfParse.default(buffer);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const pdfParse = require("pdf-parse");
+        const data = await pdfParse(buffer);
         return data.text;
       } catch {
         return `[PDF: ${filename} - テキスト抽出には pdf-parse パッケージが必要です]`;
