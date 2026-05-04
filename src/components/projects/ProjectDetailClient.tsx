@@ -43,6 +43,7 @@ type Phase = {
 type Document = {
   id: string; docType: string; content: string | null;
   completeness: number; aiGenerated: boolean; version: number; updatedAt: Date;
+  _count?: { files: number };
 };
 
 type Project = {
@@ -229,37 +230,33 @@ export default function ProjectDetailClient({
             </Link>
           )}
           {project.documents.map((doc) => (
-            <div key={doc.id} className="bg-white rounded-xl border border-slate-100 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-semibold text-slate-800">
+            <div key={doc.id} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-colors">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-slate-700">
                     {DOC_TYPE_LABELS[doc.docType] ?? doc.docType}
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="text-xs text-slate-400">完成度 {doc.completeness}%</div>
-                    {doc.aiGenerated && (
-                      <span className="text-[10px] bg-violet-100 text-violet-600 px-1.5 py-0.5 rounded">AI生成</span>
-                    )}
-                    <span className="text-[10px] text-slate-300">v{doc.version}</span>
-                  </div>
-                </div>
-                <div className="flex gap-1.5">
-                  {isAdmin && (
-                    <DocumentUploadButton
-                      projectId={project.id}
-                      docType={doc.docType}
-                      docTypeLabel={DOC_TYPE_LABELS[doc.docType] ?? doc.docType}
-                    />
+                  </span>
+                  {doc.aiGenerated && (
+                    <span className="text-[10px] px-1.5 py-0.5 bg-violet-100 text-violet-600 rounded">AI生成</span>
                   )}
-                  <Link href={`/projects/${project.id}/documents/${doc.docType}`}
-                    className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50">
-                    {isAdmin ? "編集" : "閲覧"}
-                  </Link>
+                </div>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-xs text-slate-400">完成度 {doc.completeness}%</span>
+                  <span className="text-xs text-slate-400">v{doc.version}</span>
+                  {(doc._count?.files ?? 0) > 0 && (
+                    <span className="text-xs text-slate-400">📁 {doc._count!.files}件</span>
+                  )}
+                  <div className="w-20 h-1 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-[#1D6FA4] rounded-full transition-all" style={{ width: `${doc.completeness}%` }} />
+                  </div>
                 </div>
               </div>
-              <div className="mt-2 h-1 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full bg-[#1D6FA4] rounded-full" style={{ width: `${doc.completeness}%` }} />
-              </div>
+              <Link
+                href={`/projects/${project.id}/documents/${doc.docType}`}
+                className="ml-4 text-xs px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 hover:border-[#1D6FA4] hover:text-[#1D6FA4] transition-colors shrink-0"
+              >
+                {doc.completeness === 0 && !doc.aiGenerated ? "作成 →" : "編集 →"}
+              </Link>
             </div>
           ))}
           <div className="flex items-center gap-3 mt-4 mb-2">
