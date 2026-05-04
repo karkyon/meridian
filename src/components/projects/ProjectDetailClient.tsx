@@ -52,7 +52,7 @@ type Project = {
   documents: Document[]; wbsPhases: Phase[];
 };
 
-const TABS = ["概要", "ドキュメント", "WBS", "添付資料"] as const;
+const TABS = ["概要", "ドキュメント", "カスタムドキュメント", "WBS", "添付資料"] as const;
 
 export default function ProjectDetailClient({
   project,
