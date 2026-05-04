@@ -44,6 +44,7 @@ type Document = {
   id: string; docType: string; content: string | null;
   completeness: number; aiGenerated: boolean; version: number; updatedAt: Date;
   _count?: { files: number };
+  fileCount?: number;
 };
 
 type Project = {
@@ -243,8 +244,8 @@ export default function ProjectDetailClient({
                 <div className="flex items-center gap-3 mt-1">
                   <span className="text-xs text-slate-400">完成度 {doc.completeness}%</span>
                   <span className="text-xs text-slate-400">v{doc.version}</span>
-                  {(doc._count?.files ?? 0) > 0 && (
-                    <span className="text-xs text-slate-400">📁 {doc._count!.files}件</span>
+                  {(doc.fileCount ?? 0) > 0 && (
+                    <span className="text-xs text-slate-400">📁 {doc.fileCount}件</span>
                   )}
                   <div className="w-20 h-1 bg-slate-100 rounded-full overflow-hidden">
                     <div className="h-full bg-[#1D6FA4] rounded-full transition-all" style={{ width: `${doc.completeness}%` }} />

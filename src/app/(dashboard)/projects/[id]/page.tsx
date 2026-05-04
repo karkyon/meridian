@@ -33,10 +33,28 @@ export default async function ProjectDetailPage({ params }: Params) {
 
   if (!project) notFound();
 
+  // _countをシリアライズ可能な形に変換
+  const serializedProject = {
+    ...project,
+    progressCache: Number(project.progressCache),
+    docCompleteness: Number(project.docCompleteness),
+    documents: project.documents.map((d) => ({
+      ...d,
+      fileCount: d._count?.files ?? 0,
+    })),
+    wbsPhases: project.wbsPhases.map((p) => ({
+      ...p,
+      tasks: p.tasks.map((t) => ({
+        ...t,
+        estimatedHours: t.estimatedHours ? Number(t.estimatedHours) : null,
+      })),
+    })),
+  };
+
   return (
     <>
       <TopBar title={project.name} />
-      <ProjectDetailClient project={project} role={role} />
+      <ProjectDetailClient project={serializedProject} role={role} />
     </>
   );
 }
