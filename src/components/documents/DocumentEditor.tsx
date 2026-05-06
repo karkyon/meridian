@@ -95,6 +95,10 @@ function mdToHtml(md: string): string {
   const isSep = (line: string) =>
     /^\|( *:?-+:? *\|)+ *$/.test(line.trim());
 
+  // テーブル行判定：最低3セル（| で2分割以上）必要
+  const isTableRow = (t: string) =>
+    t.startsWith("|") && t.endsWith("|") && t.split("|").length >= 2;
+
   const closeLists = () => {
     if (inOl) { out.push("</ol>"); inOl = false; }
     if (inUl) { out.push("</ul>"); inUl = false; }
@@ -132,22 +136,25 @@ function mdToHtml(md: string): string {
     if (isSep(line)) { continue; }
 
     // ── テーブル行 ──
-    if (/^\|.+\|$/.test(trimmed)) {
+    if (isTableRow(trimmed)) {
       closeLists();
       const cells = trimmed.slice(1, -1).split("|").map((c) => c.trim());
       if (!inTable) {
         const next = lines[i + 1] ?? "";
         if (isSep(next)) {
-          // thead あり
+          // thead あり：1行目はヘッダー、セパレーターをスキップ
           out.push('<div class="table-wrapper"><table>');
           out.push(`<thead><tr>${cells.map((c) => `<th>${inlineMd(c)}</th>`).join("")}</tr></thead>`);
           out.push("<tbody>");
           i++; // セパレーター行スキップ
+          inTable = true;
+          continue;
         } else {
+          // thead なし：1行目もtbodyへ確実に出力
           out.push('<div class="table-wrapper"><table><tbody>');
+          inTable = true;
+          // continueしない → このままtr出力へ落ちる
         }
-        inTable = true;
-        continue;
       }
       out.push(`<tr>${cells.map((c) => `<td>${inlineMd(c)}</td>`).join("")}</tr>`);
       continue;
@@ -217,12 +224,24 @@ function mdToHtml(md: string): string {
   return out.join("\n");
 }
 
+// HTML特殊文字エスケープ
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 // インライン要素変換（escapeHtml後に処理）
 function inlineMd(s: string): string {
   let t = escapeHtml(s);
   t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
+  // bold を先に処理してから italic（順序が重要）
   t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  t = t.replace(/\*(.+?)\*/g, "<em>$1</em>");
+  // bold処理済みなので ** は消えている → * 単独のみ残る
+  t = t.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
   t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>');
   return t;
 }

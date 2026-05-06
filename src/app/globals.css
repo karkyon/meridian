@@ -23,8 +23,8 @@
 .md-preview {
   font-family: 'DM Sans', 'Noto Sans JP', -apple-system, sans-serif;
   font-size: 0.875rem;
-  line-height: 1.75;
-  color: #1a1a1a;
+  line-height: 1.9;
+  color: #37352f;
 }
 
 .md-preview p {
@@ -33,12 +33,12 @@
 }
 
 .md-preview h1 {
-  font-size: 1.5rem;
+  font-size: 2.2rem;
   font-weight: 700;
   color: #111111;
-  margin: 0 0 1.25rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  letter-spacing: -0.03em;
+  margin: 2.5rem 0 1rem;
+  border: none;
 }
 
 .md-preview h2 {
@@ -94,10 +94,9 @@
   color: #1a1a1a;
 }
 
-.md-preview li.checked,
-.md-preview li.unchecked {
+.md-preview li.ck {
   list-style: none;
-  margin-left: -1rem;
+  margin-left: -1.2rem;
 }
 
 .md-preview .cb {
@@ -127,7 +126,7 @@
 }
 
 /* インラインコード：Notion準拠（薄ピンク背景・赤文字） */
-.md-preview code {
+.md-preview :not(pre) > code {
   font-family: 'DM Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 0.82em;
   background: #fff0f0;
