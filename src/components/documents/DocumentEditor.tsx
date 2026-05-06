@@ -78,70 +78,131 @@ function getFileLabel(fileType: string) {
 }
 
 // ============================================================
-// Markdown → HTML 変換（シンプル実装）
+// Markdown → HTML 変換
 // ============================================================
 function mdToHtml(md: string): string {
-  // テーブル変換
   const lines = md.split("\n");
-  const processedLines: string[] = [];
+  const out: string[] = [];
   let inTable = false;
+  let inFence = false;
+  let fenceLang = "";
+  let fenceLines: string[] = [];
+
+  // セパレーター行判定（|---|, |:---|, |---:|, |:---:| すべて対応）
+  const isSepLine = (line: string) =>
+    /^\|(\s*:?-+:?\s*\|)+\s*$/.test(line.trim());
+
+  const flushTable = () => {
+    if (inTable) { out.push("</tbody></table>"); inTable = false; }
+  };
+  const flushFence = () => {
+    if (inFence) {
+      const code = escapeHtml(fenceLines.join("\n").trimEnd());
+      out.push(`<pre class="code-block" data-lang="${fenceLang}"><code>${code}</code></pre>`);
+      inFence = false; fenceLang = ""; fenceLines = [];
+    }
+  };
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const isTableRow = /^\|.+\|$/.test(line.trim());
-    // セパレーター行：|---|, |:---|, |---:|, |:---:|, スペース混在すべて対応
-    const isSepRow = /^\|[\s]*[-:]+[\s]*(\|[\s]*[-:]+[\s]*)*\|[\s]*$/.test(line.trim());
-    if (isTableRow && !isSepRow) {
-      if (!inTable) {
-        processedLines.push("<table>");
-        const nextLine = lines[i + 1] ?? "";
-        if (/^\|[-:\s|]+\|$/.test(nextLine.trim())) {
-          const cells = line.trim().slice(1,-1).split("|").map((c:any)=>`<th>${c.trim()}</th>`).join("");
-          processedLines.push(`<thead><tr>${cells}</tr></thead><tbody>`);
-          i++; inTable = true; continue;
-        } else { processedLines.push("<tbody>"); }
-        inTable = true;
+
+    // ── コードフェンス ──
+    if (/^```/.test(line.trim())) {
+      if (!inFence) {
+        flushTable();
+        inFence = true;
+        fenceLang = line.trim().replace(/^```/, "").trim();
+        fenceLines = [];
+      } else {
+        flushFence();
       }
-      const cells = line.trim().slice(1,-1).split("|").map((c:any)=>`<td>${c.trim()}</td>`).join("");
-      processedLines.push(`<tr>${cells}</tr>`);
-    } else {
-      if (inTable) { processedLines.push("</tbody></table>"); inTable = false; }
-      processedLines.push(line);
+      continue;
     }
+    if (inFence) { fenceLines.push(line); continue; }
+
+    // ── セパレーター行は完全スキップ ──
+    if (isSepLine(line)) { continue; }
+
+    // ── テーブル行 ──
+    if (/^\|.+\|$/.test(line.trim())) {
+      const cells = line.trim().slice(1, -1).split("|").map((c) => c.trim());
+      if (!inTable) {
+        // 次行がセパレーターならtheadとして扱う
+        const next = lines[i + 1] ?? "";
+        if (isSepLine(next)) {
+          out.push(`<table><thead><tr>${cells.map((c) => `<th>${inlineMd(c)}</th>`).join("")}</tr></thead><tbody>`);
+          i++; // セパレーター行をスキップ
+        } else {
+          out.push(`<table><tbody><tr>${cells.map((c) => `<td>${inlineMd(c)}</td>`).join("")}</tr>`);
+        }
+        inTable = true;
+      } else {
+        out.push(`<tr>${cells.map((c) => `<td>${inlineMd(c)}</td>`).join("")}</tr>`);
+      }
+      continue;
+    }
+
+    flushTable();
+
+    // ── 空行 ──
+    if (line.trim() === "") { out.push(""); continue; }
+
+    // ── 水平線 ──
+    if (/^-{3,}$/.test(line.trim())) { out.push("<hr>"); continue; }
+
+    // ── 見出し（h4〜h1）番号付き "## 1. タイトル" も正しく変換 ──
+    const hm = line.match(/^(#{1,4})\s+(.+)$/);
+    if (hm) {
+      const tag = `h${hm[1].length}`;
+      out.push(`<${tag}>${inlineMd(hm[2])}</${tag}>`);
+      continue;
+    }
+
+    // ── 番号付きリスト（② 番号が消える問題の修正）──
+    // 例: "1. テキスト" → <li class="ol" value="1">
+    const olm = line.match(/^(\s*)(\d+)\.\s+(.+)$/);
+    if (olm) {
+      out.push(`<li class="ol" data-v="${olm[2]}">${inlineMd(olm[3])}</li>`);
+      continue;
+    }
+
+    // ── チェックボックス ──
+    const ckx = line.match(/^[-*]\s+\[x\]\s+(.+)$/i);
+    const cko = line.match(/^[-*]\s+\[\s\]\s+(.+)$/);
+    if (ckx) { out.push(`<li class="ck checked"><span class="cb checked">✓</span>${inlineMd(ckx[1])}</li>`); continue; }
+    if (cko) { out.push(`<li class="ck"><span class="cb">○</span>${inlineMd(cko[1])}</li>`); continue; }
+
+    // ── 箇条書き ──
+    const ulm = line.match(/^(\s*)[-*]\s+(.+)$/);
+    if (ulm) { out.push(`<li>${inlineMd(ulm[2])}</li>`); continue; }
+
+    // ── 通常段落 ──
+    out.push(`<p>${inlineMd(line)}</p>`);
   }
-  if (inTable) processedLines.push("</tbody></table>");
-  md = processedLines.join("\n");
-  let html = md
-    // コードブロック
-    .replace(/```(\w*)\n([\s\S]*?)```/g, (_m, lang, code) =>
-      `<pre class="code-block" data-lang="${lang}"><code>${escapeHtml(code.trimEnd())}</code></pre>`)
-    // インラインコード
+  flushTable();
+  flushFence();
+
+  // li → ul/ol でラップ（番号付きは <ol>、それ以外は <ul>）
+  const joined = out.join("\n");
+  return wrapLists(joined);
+}
+
+// インライン要素変換（太字・斜体・コード・リンク）
+function inlineMd(s: string): string {
+  return s
     .replace(/`([^`]+)`/g, "<code>$1</code>")
-    // 見出し
-    .replace(/^### (.+)$/gm, "<h3>$1</h3>")
-    .replace(/^## (.+)$/gm, "<h2>$1</h2>")
-    .replace(/^# (.+)$/gm, "<h1>$1</h1>")
-    // 太字・斜体
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
     .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    // チェックボックス
-    .replace(/^- \[x\] (.+)$/gm, '<li class="checked"><span class="cb checked">✓</span> $1</li>')
-    .replace(/^- \[ \] (.+)$/gm, '<li class="unchecked"><span class="cb">○</span> $1</li>')
-    // リスト
-    .replace(/^[-*] (.+)$/gm, "<li>$1</li>")
-    .replace(/^\d+\. (.+)$/gm, "<li class=\"ol\">$1</li>")
-    // 水平線
-    .replace(/^---$/gm, "<hr>")
-    // 段落
-    .replace(/\n\n/g, "</p><p>")
-    ;
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="md-link">$1</a>');
+}
 
-  // li をまとめてulでラップ
-  html = html.replace(/(<li.*>[\s\S]*?<\/li>)+/g, (m) => {
-    if (m.includes('class="ol"')) return `<ol>${m}</ol>`;
-    return `<ul>${m}</ul>`;
-  });
-
-  return `<p>${html}</p>`;
+// 連続する li を ul/ol でラップ
+function wrapLists(html: string): string {
+  // ol: 連続する <li class="ol" ...> を <ol> でラップ
+  html = html.replace(/(<li class="ol"[^\n]*\n?)+/g, (m) => `<ol>${m}</ol>`);
+  // ul: 残りの <li ...> を <ul> でラップ
+  html = html.replace(/(<li(?! class="ol")[^\n]*\n?)+/g, (m) => `<ul>${m}</ul>`);
+  return html;
 }
 
 function escapeHtml(s: string) {
