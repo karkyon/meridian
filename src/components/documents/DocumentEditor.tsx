@@ -212,9 +212,12 @@ function mdToHtml(md: string): string {
       continue;
     }
 
-    // ── 通常段落 ──
+    // ── 通常段落（空文字は出力しない）──
     closeLists();
-    out.push(`<p>${inlineMd(trimmed)}</p>`);
+    const paragraph = inlineMd(trimmed);
+    if (paragraph.trim() !== "") {
+      out.push(`<p>${paragraph}</p>`);
+    }
   }
 
   closeLists();
@@ -232,6 +235,11 @@ function escapeHtml(str: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+// XSS対策：scriptタグ除去
+function sanitizeHtml(html: string): string {
+  return html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
 }
 
 // インライン要素変換（escapeHtml後に処理）
@@ -294,7 +302,7 @@ ${code}
 // Markdownプレビュー（スクショ準拠：A4ページ風カードデザイン）
 // ============================================================
 function MarkdownPreview({ content }: { content: string }) {
-  const html = mdToHtml(content);
+  const html = sanitizeHtml(mdToHtml(content));
   return (
     <div className="md-preview-wrap h-full overflow-y-auto">
       <div className="md-preview-page">

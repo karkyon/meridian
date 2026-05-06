@@ -89,7 +89,8 @@
 }
 
 .md-preview li {
-  margin: 0.35rem 0;
+  margin: 0.45rem 0;
+  padding-left: 0.1rem;
   line-height: 1.8;
   color: #1a1a1a;
 }
@@ -215,7 +216,7 @@
 }
 
 .md-preview td {
-  padding: 0.75rem 0.9rem;
+  padding: 0.85rem 1rem;
   border-right: 1px solid #ececec;
   border-bottom: 1px solid #ececec;
   color: #37352f;
