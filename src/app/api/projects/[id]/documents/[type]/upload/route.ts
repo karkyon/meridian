@@ -18,10 +18,14 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "INVALID_FILE_TYPE" }, { status: 400 });
     }
 
-    const doc = await prisma.document.findUnique({
+    let doc = await prisma.document.findUnique({
       where: { projectId_docType: { projectId: params.id, docType: params.type as never } },
     });
-    if (!doc) return NextResponse.json({ error: "DOCUMENT_NOT_FOUND" }, { status: 404 });
+    if (!doc) {
+      doc = await prisma.document.create({
+        data: { projectId: params.id, docType: params.type as never, content: "", completeness: 0, version: 1 },
+      });
+    }
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
