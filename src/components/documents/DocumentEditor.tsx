@@ -133,14 +133,14 @@ function mdToHtml(md: string): string {
     if (inFence) { fenceLines.push(line); continue; }
 
     // ── セパレーター行は完全スキップ ──
-    if (isSep(line)) { continue; }
+    if (isSep(trimmed)) { continue; }
 
     // ── テーブル行 ──
     if (isTableRow(trimmed)) {
       closeLists();
       const cells = trimmed.slice(1, -1).split("|").map((c) => c.trim());
       if (!inTable) {
-        const next = lines[i + 1] ?? "";
+        const next = (lines[i + 1] ?? "").trim();
         if (isSep(next)) {
           // thead あり：1行目はヘッダー、セパレーターをスキップ
           out.push('<div class="table-wrapper"><table>');
@@ -182,8 +182,8 @@ function mdToHtml(md: string): string {
     const olm = trimmed.match(/^(\d+)\.\s+(.+)$/);
     if (olm) {
       if (inUl) { out.push("</ul>"); inUl = false; }
-      if (!inOl) { out.push("<ol>"); inOl = true; }
-      out.push(`<li>${inlineMd(olm[2])}</li>`);
+      if (!inOl) { out.push(`<ol start="${olm[1]}">`); inOl = true; }
+      out.push(`<li value="${olm[1]}">${inlineMd(olm[2])}</li>`);
       continue;
     }
 
