@@ -40,7 +40,7 @@ export default function FocusPanel({ role }: { role: string }) {
 
       {loading ? (
         <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3].map((i: any) => (
             <div key={i} className="h-12 bg-slate-100 rounded-lg animate-pulse" />
           ))}
         </div>
@@ -50,7 +50,7 @@ export default function FocusPanel({ role }: { role: string }) {
         </div>
       ) : (
         <div className="space-y-2">
-          {tasks.map((task, i) => (
+          {tasks.map((task: any, i: number) => (
             <Link
               key={task.task_id}
               href={`/projects/${task.project_id}`}

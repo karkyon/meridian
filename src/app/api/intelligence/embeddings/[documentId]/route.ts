@@ -22,7 +22,7 @@ function chunkText(text: string, maxChars = 1500): string[] {
     }
   }
   if (current.trim()) chunks.push(current.trim());
-  return chunks.filter((c) => c.length > 50); // 短すぎるチャンクは除外
+  return chunks.filter((c: any) => c.length > 50); // 短すぎるチャンクは除外
 }
 
 export async function POST(req: NextRequest, { params }: Params) {

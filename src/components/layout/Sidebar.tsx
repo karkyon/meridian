@@ -43,12 +43,12 @@ export default function Sidebar() {
 
       {/* ナビ */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 flex flex-col gap-4">
-        {navItems.map((section) => (
+        {navItems.map((section: any) => (
           <div key={section.section}>
             <div className="text-[10px] font-semibold text-white/30 uppercase tracking-wider px-2 mb-1">
               {section.section}
             </div>
-            {section.items.map((item) => {
+            {section.items.map((item: any) => {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link
@@ -73,7 +73,7 @@ export default function Sidebar() {
           <div className="text-[10px] font-semibold text-white/30 uppercase tracking-wider px-2 mb-1">
             管理
           </div>
-          {adminItems.map((item) => {
+          {adminItems.map((item: any) => {
             const isAdmin = role === "admin";
             const active = pathname === item.href;
             if (!isAdmin) {

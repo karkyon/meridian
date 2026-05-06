@@ -34,15 +34,15 @@ export async function GET(req: NextRequest, { params }: Params) {
       },
     });
 
-    const docMap = new Map(docs.map((d) => [d.customTypeKey, d]));
+    const docMap = new Map(docs.map((d: any) => [d.customTypeKey, d]));
 
     // 全タイプをマージして返す
     const allTypes = [
-      ...globalTypes.map((t) => ({ key: t.key, label: t.label, sortOrder: t.sortOrder, scope: "global" as const })),
-      ...projectTypes.map((t) => ({ key: t.key, label: t.label, sortOrder: t.sortOrder, scope: "project" as const })),
+      ...globalTypes.map((t: any) => ({ key: t.key, label: t.label, sortOrder: t.sortOrder, scope: "global" as const })),
+      ...projectTypes.map((t: any) => ({ key: t.key, label: t.label, sortOrder: t.sortOrder, scope: "project" as const })),
     ];
 
-    const result = allTypes.map((t) => ({
+    const result = allTypes.map((t: any) => ({
       ...t,
       doc: docMap.get(t.key) ?? null,
     }));

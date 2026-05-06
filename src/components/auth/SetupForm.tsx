@@ -165,7 +165,7 @@ export default function SetupForm() {
         {password && (
           <div className="flex items-center gap-2 mt-1">
             <div className="flex-1 flex gap-1">
-              {[1, 2, 3, 4, 5].map((i) => (
+              {[1, 2, 3, 4, 5].map((i: any) => (
                 <div
                   key={i}
                   className={`h-1 flex-1 rounded-full transition-all ${

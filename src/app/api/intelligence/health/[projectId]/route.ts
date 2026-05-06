@@ -64,7 +64,7 @@ JSONのみ出力してください（配列形式）。`;
       techs = JSON.parse(clean);
     } catch {
       // フォールバック: 基本情報のみ
-      techs = techStack.map((tech) => ({
+      techs = techStack.map((tech: any) => ({
         name: tech,
         current_version: null,
         latest_version: null,
@@ -77,7 +77,7 @@ JSONのみ出力してください（配列形式）。`;
     // DBに保存
     await prisma.healthScore.deleteMany({ where: { projectId: params.projectId } });
     await prisma.healthScore.createMany({
-      data: techs.map((t) => ({
+      data: techs.map((t: any) => ({
         projectId: params.projectId,
         techName: t.name,
         currentVersion: t.current_version,
@@ -92,7 +92,7 @@ JSONのみ出力してください（配列形式）。`;
     // 総合スコア計算
     const riskScores: Record<string, number> = { low: 100, medium: 70, high: 40, critical: 10 };
     const overallScore = techs.length > 0
-      ? Math.round(techs.reduce((s, t) => s + (riskScores[t.risk] ?? 80), 0) / techs.length)
+      ? Math.round(techs.reduce((s: any, t: any) => s + (riskScores[t.risk] ?? 80), 0) / techs.length)
       : 100;
 
     // healthScore をプロジェクトにキャッシュ

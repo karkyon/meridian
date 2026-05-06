@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
         "external_spec",
         "db_spec",
         "api_spec",
-      ].map((docType) => ({
+      ].map((docType: any) => ({
         projectId: project.id,
         docType: docType as "planning" | "requirements" | "external_spec" | "db_spec" | "api_spec",
         content: null,

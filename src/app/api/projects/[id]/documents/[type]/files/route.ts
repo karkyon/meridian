@@ -16,6 +16,6 @@ export async function GET(req: NextRequest, { params }: Params) {
       orderBy: { createdAt: "desc" },
       select: { id: true, originalName: true, fileType: true, fileSize: true, createdAt: true, isEditable: true },
     });
-    return NextResponse.json({ files: files.map(f => ({...f, createdAt: f.createdAt.toISOString()})) });
+    return NextResponse.json({ files: files.map((f: any) => ({...f, createdAt: f.createdAt.toISOString()})) });
   });
 }

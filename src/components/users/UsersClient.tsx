@@ -38,7 +38,7 @@ export default function UsersClient({ initialUsers, currentUserId }: { initialUs
   async function deleteUser(id: string, email: string) {
     if (!confirm(`「${email}」を削除しますか？`)) return;
     const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
-    if (res.ok) setUsers((prev) => prev.filter((u) => u.id !== id));
+    if (res.ok) setUsers((prev) => prev.filter((u: any) => u.id !== id));
   }
 
   async function unlockUser(id: string) {
@@ -48,7 +48,7 @@ export default function UsersClient({ initialUsers, currentUserId }: { initialUs
       body: JSON.stringify({ locked_until: null }),
     });
     if (res.ok) {
-      setUsers((prev) => prev.map((u) => u.id === id ? { ...u, lockedUntil: null, failedLoginCount: 0 } : u));
+      setUsers((prev) => prev.map((u: any) => u.id === id ? { ...u, lockedUntil: null, failedLoginCount: 0 } : u));
     }
   }
 
@@ -76,7 +76,7 @@ export default function UsersClient({ initialUsers, currentUserId }: { initialUs
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">
-            {users.map((u) => {
+            {users.map((u: any) => {
               const isLocked = u.lockedUntil && new Date(u.lockedUntil) > new Date();
               const isSelf = u.id === currentUserId;
               return (

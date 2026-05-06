@@ -103,12 +103,12 @@ export default function RagClient({
         >
           全プロジェクト ({projects.length}件)
         </button>
-        {projects.slice(0, 8).map((p) => (
+        {projects.slice(0, 8).map((p: any) => (
           <button
             key={p.id}
             onClick={() =>
               setSelectedProjects((prev) =>
-                prev.includes(p.id) ? prev.filter((id) => id !== p.id) : [...prev, p.id]
+                prev.includes(p.id) ? prev.filter((id: any) => id !== p.id) : [...prev, p.id]
               )
             }
             className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
@@ -136,7 +136,7 @@ export default function RagClient({
                 "PostgreSQLを使っているプロジェクトは？",
                 "認証方式を比較して",
                 "最も進捗が遅れているプロジェクトは？",
-              ].map((q) => (
+              ].map((q: any) => (
                 <button
                   key={q}
                   onClick={() => setInput(q)}
@@ -149,7 +149,7 @@ export default function RagClient({
           </div>
         )}
 
-        {messages.map((msg) => (
+        {messages.map((msg: any) => (
           <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className={`max-w-lg ${msg.role === "user" ? "" : "space-y-2"}`}>
               {msg.role === "assistant" && (
@@ -168,7 +168,7 @@ export default function RagClient({
               {/* ソース引用 */}
               {msg.sources && msg.sources.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
-                  {msg.sources.map((s, i) => (
+                  {msg.sources.map((s: any, i: number) => (
                     <span
                       key={i}
                       className="text-[10px] px-2 py-0.5 border border-slate-100 rounded bg-white text-slate-400"
@@ -186,7 +186,7 @@ export default function RagClient({
           <div className="flex justify-start">
             <div className="bg-slate-50 border border-slate-100 rounded-2xl rounded-bl-sm px-4 py-3">
               <div className="flex gap-1">
-                {[0, 1, 2].map((i) => (
+                {[0, 1, 2].map((i: any) => (
                   <div
                     key={i}
                     className="w-1.5 h-1.5 bg-[#1D6FA4] rounded-full animate-bounce"

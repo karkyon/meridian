@@ -39,9 +39,9 @@ export async function GET(req: NextRequest, { params }: Params) {
     });
 
     // 各フェーズの進捗を計算
-    const phasesWithProgress = phases.map((phase) => {
+    const phasesWithProgress = phases.map((phase: any) => {
       const total = phase.tasks.length;
-      const done = phase.tasks.filter((t) => t.status === "done").length;
+      const done = phase.tasks.filter((t: any) => t.status === "done").length;
       return {
         ...phase,
         progress: total > 0 ? Math.round((done / total) * 100) : 0,

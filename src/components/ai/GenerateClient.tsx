@@ -35,12 +35,12 @@ export default function GenerateClient({
 }) {
   const router = useRouter();
   const [promptHint, setPromptHint] = useState("");
-  const [selectedDocs, setSelectedDocs] = useState<string[]>(DOC_TYPES.map((d) => d.key));
+  const [selectedDocs, setSelectedDocs] = useState<string[]>(DOC_TYPES.map((d: any) => d.key));
   const [includeWbs, setIncludeWbs] = useState(false);
   const [referenceExisting, setReferenceExisting] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [docStates, setDocStates] = useState<Record<string, DocState>>(
-    Object.fromEntries(DOC_TYPES.map((d) => [d.key, { status: "idle", content: "" }]))
+    Object.fromEntries(DOC_TYPES.map((d: any) => [d.key, { status: "idle", content: "" }]))
   );
   const [currentDoc, setCurrentDoc] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -48,12 +48,12 @@ export default function GenerateClient({
 
   function toggleDoc(key: string) {
     setSelectedDocs((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+      prev.includes(key) ? prev.filter((k: any) => k !== key) : [...prev, key]
     );
   }
 
   function selectAll() {
-    setSelectedDocs(DOC_TYPES.map((d) => d.key));
+    setSelectedDocs(DOC_TYPES.map((d: any) => d.key));
   }
   function selectNone() {
     setSelectedDocs([]);
@@ -67,7 +67,7 @@ export default function GenerateClient({
     // stateリセット
     setDocStates(
       Object.fromEntries(
-        DOC_TYPES.map((d) => [d.key, { status: "idle" as const, content: "" }])
+        DOC_TYPES.map((d: any) => [d.key, { status: "idle" as const, content: "" }])
       )
     );
 
@@ -212,7 +212,7 @@ export default function GenerateClient({
               </div>
             </div>
             <div className="space-y-1.5">
-              {DOC_TYPES.map((doc) => (
+              {DOC_TYPES.map((doc: any) => (
                 <label key={doc.key} className="flex items-center gap-2.5 cursor-pointer">
                   <input
                     type="checkbox"
@@ -222,8 +222,8 @@ export default function GenerateClient({
                     className="w-3.5 h-3.5 rounded border-slate-300 text-[#1D6FA4]"
                   />
                   <span className="text-sm text-slate-700">{doc.label}</span>
-                  {project.documents.find((d) => d.docType === doc.key)?.content && (
-                    <span className="text-[10px] text-slate-400">（既存あり v{project.documents.find((d) => d.docType === doc.key)?.version}）</span>
+                  {project.documents.find((d: any) => d.docType === doc.key)?.content && (
+                    <span className="text-[10px] text-slate-400">（既存あり v{project.documents.find((d: any) => d.docType === doc.key)?.version}）</span>
                   )}
                 </label>
               ))}
@@ -289,7 +289,7 @@ export default function GenerateClient({
 
         {/* プレビューパネル */}
         <div className="space-y-3">
-          {DOC_TYPES.filter((d) => selectedDocs.includes(d.key)).map((doc) => {
+          {DOC_TYPES.filter((d: any) => selectedDocs.includes(d.key)).map((doc: any) => {
             const state = docStates[doc.key];
             return (
               <div

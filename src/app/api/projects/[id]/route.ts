@@ -50,9 +50,9 @@ export async function GET(req: NextRequest, { params }: Params) {
     }
 
     // WBS進捗サマリー計算
-    const allTasks = project.wbsPhases.flatMap((p) => p.tasks);
+    const allTasks = project.wbsPhases.flatMap((p: any) => p.tasks);
     const totalTasks = allTasks.length;
-    const doneTasks = allTasks.filter((t) => t.status === "done").length;
+    const doneTasks = allTasks.filter((t: any) => t.status === "done").length;
     const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
     return NextResponse.json({
@@ -101,7 +101,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       select: { completeness: true },
     });
     if (docs.length > 0) {
-      const avg = docs.reduce((s, d) => s + d.completeness, 0) / docs.length;
+      const avg = docs.reduce((s: any, d: any) => s + d.completeness, 0) / docs.length;
       await prisma.project.update({
         where: { id: params.id },
         data: { docCompleteness: avg },

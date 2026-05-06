@@ -28,13 +28,13 @@ export async function POST(req: NextRequest) {
     weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1);
     weekStart.setHours(0, 0, 0, 0);
 
-    const projectSummaries = projects.map((p) => {
-      const allTasks = p.wbsPhases.flatMap((ph) => ph.tasks);
+    const projectSummaries = projects.map((p: any) => {
+      const allTasks = p.wbsPhases.flatMap((ph: any) => ph.tasks);
       const weeklyDone = allTasks.filter(
-        (t) => t.status === "done" && t.updatedAt >= weekStart
+        (t: any) => t.status === "done" && t.updatedAt >= weekStart
       ).length;
       const overdue = allTasks.filter(
-        (t) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done"
+        (t: any) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done"
       ).length;
       return `- ${p.name} [${p.status}]: 進捗${Number(p.progressCache).toFixed(0)}%, 今週完了${weeklyDone}件${overdue > 0 ? `, 期限超過${overdue}件` : ""}`;
     }).join("\n");

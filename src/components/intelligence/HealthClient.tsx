@@ -73,7 +73,7 @@ export default function HealthClient({
       )}
 
       <div className="space-y-4">
-        {projects.map((project) => {
+        {projects.map((project: any) => {
           const techStack = Array.isArray(project.techStack) ? (project.techStack as string[]) : [];
           const result = results[project.id];
           const scores = result?.techs ?? project.healthScores;
@@ -97,7 +97,7 @@ export default function HealthClient({
                   </div>
                   {techStack.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {techStack.map((t) => (
+                      {techStack.map((t: any) => (
                         <span key={t} className="text-[10px] bg-slate-50 border border-slate-200 text-slate-500 px-1.5 py-0.5 rounded">
                           {t}
                         </span>
@@ -126,7 +126,7 @@ export default function HealthClient({
 
               {scores.length > 0 ? (
                 <div className="divide-y divide-slate-50">
-                  {scores.map((tech, i) => {
+                  {scores.map((tech: any, i: number) => {
                     const risk = riskConfig[tech.riskLevel as keyof typeof riskConfig] ?? riskConfig.low;
                     const status = statusConfig[tech.status as keyof typeof statusConfig] ?? statusConfig.latest;
                     return (

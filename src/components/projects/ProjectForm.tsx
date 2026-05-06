@@ -58,7 +58,7 @@ export default function ProjectForm({ initial }: ProjectFormProps) {
   }
 
   function removeTech(tech: string) {
-    setTechStack(techStack.filter((t) => t !== tech));
+    setTechStack(techStack.filter((t: any) => t !== tech));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -146,7 +146,7 @@ export default function ProjectForm({ initial }: ProjectFormProps) {
             onChange={(e) => setStatus(e.target.value)}
             className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-[#1D6FA4] focus:outline-none bg-white"
           >
-            {STATUS_OPTIONS.map((o) => (
+            {STATUS_OPTIONS.map((o: any) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
@@ -186,7 +186,7 @@ export default function ProjectForm({ initial }: ProjectFormProps) {
         </div>
         {techStack.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
-            {techStack.map((tech) => (
+            {techStack.map((tech: any) => (
               <span
                 key={tech}
                 className="flex items-center gap-1 text-xs bg-[#1A3A5C]/10 text-[#1A3A5C] px-2 py-1 rounded-full"

@@ -86,13 +86,13 @@ export default function AuditClient() {
           <select value={filterUser} onChange={(e) => { setFilterUser(e.target.value); setPage(1); }}
             className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 focus:outline-none min-w-[140px]">
             <option value="">全ユーザー</option>
-            {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
 
           <select value={filterAction} onChange={(e) => { setFilterAction(e.target.value); setPage(1); }}
             className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-slate-50 focus:outline-none min-w-[160px]">
             <option value="">全アクション</option>
-            {Object.keys(ACTION_COLORS).map((a) => <option key={a} value={a}>{a}</option>)}
+            {Object.keys(ACTION_COLORS).map((a: any) => <option key={a} value={a}>{a}</option>)}
           </select>
 
           <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
@@ -127,7 +127,7 @@ export default function AuditClient() {
               <tr><td colSpan={5} className="px-3 py-8 text-center text-slate-400">読み込み中...</td></tr>
             ) : logs.length === 0 ? (
               <tr><td colSpan={5} className="px-3 py-8 text-center text-slate-400">ログがありません</td></tr>
-            ) : logs.map((log) => (
+            ) : logs.map((log: any) => (
               <tr key={log.id} className="hover:bg-slate-50/50">
                 <td className="px-3 py-2.5 text-slate-400 font-mono whitespace-nowrap">
                   {new Date(log.createdAt).toLocaleString("ja-JP", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}

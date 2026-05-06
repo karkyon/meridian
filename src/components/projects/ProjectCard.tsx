@@ -83,7 +83,7 @@ export default function ProjectCard({ project }: { project: Project }) {
         {/* テックスタック */}
         {techStack.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-3">
-            {techStack.slice(0, 4).map((tech) => (
+            {techStack.slice(0, 4).map((tech: any) => (
               <span
                 key={tech}
                 className="text-[10px] bg-slate-50 border border-slate-200 text-slate-500 px-1.5 py-0.5 rounded"

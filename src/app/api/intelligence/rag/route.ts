@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
           take: top_k,
         });
 
-        relevantChunks = chunks.map((c) => ({
+        relevantChunks = chunks.map((c: any) => ({
           chunk_text: c.chunkText,
           project_name: c.document.project.name,
           doc_type: c.document.docType,
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
           take: top_k,
         });
 
-        relevantChunks = docs.map((d) => ({
+        relevantChunks = docs.map((d: any) => ({
           chunk_text: (d.content ?? "").slice(0, 500),
           project_name: d.project.name,
           doc_type: d.docType,
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     const client = new Anthropic({ apiKey });
 
     const contextText = relevantChunks.length > 0
-      ? relevantChunks.map((c, i) =>
+      ? relevantChunks.map((c: any, i: number) =>
           `[参考${i + 1}: ${c.project_name} / ${c.doc_type}]\n${c.chunk_text}`
         ).join("\n\n---\n\n")
       : "（関連するドキュメントが見つかりませんでした）";
@@ -127,7 +127,7 @@ ${contextText}
 
     return NextResponse.json({
       answer,
-      sources: relevantChunks.map((c) => ({
+      sources: relevantChunks.map((c: any) => ({
         project_name: c.project_name,
         doc_type: c.doc_type,
         snippet: c.chunk_text.slice(0, 200),

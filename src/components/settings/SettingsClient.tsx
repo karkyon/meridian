@@ -136,7 +136,7 @@ export default function SettingsClient({ hasApiKey, initial }: SettingsClientPro
               onChange={(e) => setSummaryDay(e.target.value)}
               className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-[#1D6FA4] focus:outline-none bg-white"
             >
-              {DAYS.map((d) => (
+              {DAYS.map((d: any) => (
                 <option key={d.value} value={d.value}>{d.label}</option>
               ))}
             </select>
@@ -151,7 +151,7 @@ export default function SettingsClient({ hasApiKey, initial }: SettingsClientPro
               onChange={(e) => setFocusCount(Number(e.target.value))}
               className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-[#1D6FA4] focus:outline-none bg-white"
             >
-              {[1, 2, 3, 4, 5].map((n) => (
+              {[1, 2, 3, 4, 5].map((n: any) => (
                 <option key={n} value={n}>{n}件</option>
               ))}
             </select>
@@ -172,7 +172,7 @@ export default function SettingsClient({ hasApiKey, initial }: SettingsClientPro
             onChange={(e) => setSessionHours(Number(e.target.value))}
             className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-[#1D6FA4] focus:outline-none bg-white"
           >
-            {[1, 4, 8, 24, 72, 168, 720].map((h) => (
+            {[1, 4, 8, 24, 72, 168, 720].map((h: any) => (
               <option key={h} value={h}>
                 {h < 24 ? `${h}時間` : h < 168 ? `${h / 24}日` : h === 168 ? "1週間" : "30日"}
               </option>

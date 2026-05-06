@@ -117,10 +117,10 @@ export default function ProjectDetailClient({
   const [activeTab, setActiveTab] = useState<"docs" | "attachments">("docs");
 
   // 標準ドキュメントをdocType→データのmapに変換
-  const docMap = new Map(documents.map(d => [d.docType, d]));
+  const docMap = new Map(documents.map((d: any) => [d.docType, d]));
 
   // STANDARD_DOC_TYPES と実データをマージ
-  const mergedDocs = STANDARD_DOC_TYPES.map(def => {
+  const mergedDocs = STANDARD_DOC_TYPES.map((def: any) => {
     const data = docMap.get(def.type);
     return {
       ...def,
@@ -179,7 +179,7 @@ export default function ProjectDetailClient({
 
           {/* 標準6種ドキュメント */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {mergedDocs.map(doc => (
+            {mergedDocs.map((doc: any) => (
               <DocCard
                 key={doc.type}
                 icon={doc.icon}
@@ -205,7 +205,7 @@ export default function ProjectDetailClient({
 
           {/* カスタムドキュメント */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {customDocTypes.map(doc => (
+            {customDocTypes.map((doc: any) => (
               <DocCard
                 key={doc.key}
                 icon="📝"

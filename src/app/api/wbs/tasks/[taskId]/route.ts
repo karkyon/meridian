@@ -113,9 +113,9 @@ async function recalcProgress(projectId: string) {
     where: { projectId },
     include: { tasks: { select: { status: true } } },
   });
-  const allTasks = phases.flatMap((p) => p.tasks);
+  const allTasks = phases.flatMap((p: any) => p.tasks);
   const total = allTasks.length;
-  const done = allTasks.filter((t) => t.status === "done").length;
+  const done = allTasks.filter((t: any) => t.status === "done").length;
   const progress = total > 0 ? (done / total) * 100 : 0;
   await prisma.project.update({
     where: { id: projectId },

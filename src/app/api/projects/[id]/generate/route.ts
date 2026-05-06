@@ -139,7 +139,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
           send({ event: "start", doc_type: docType });
 
-          const existingDoc = project.documents.find((d) => d.docType === docType);
+          const existingDoc = project.documents.find((d: any) => d.docType === docType);
           const existingContent = referenceExisting ? (existingDoc?.content ?? undefined) : undefined;
 
           const prompt = buildDocPromptWithAttachments(
@@ -183,7 +183,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         }
 
         const allDocs = await prisma.document.findMany({ where: { projectId: params.id }, select: { completeness: true } });
-        const avg = allDocs.reduce((s, d) => s + d.completeness, 0) / allDocs.length;
+        const avg = allDocs.reduce((s: any, d: any) => s + d.completeness, 0) / allDocs.length;
         await prisma.project.update({ where: { id: params.id }, data: { docCompleteness: avg } });
 
         send({ event: "all_done", generated, attachment_count: attachmentTexts.length });
