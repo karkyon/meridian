@@ -29,6 +29,7 @@ enum DocType {
   external_spec
   db_spec
   api_spec
+  wireframe
   @@map("doc_type")
 }
 
@@ -385,6 +386,7 @@ enum AttachmentType {
   word
   pdf
   markdown
+  html
   other
   @@map("attachment_type")
 }

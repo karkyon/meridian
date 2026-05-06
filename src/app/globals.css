@@ -1,3 +1,226 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * DocumentEditor - Markdown/HTML プレビュースタイル
+ */
+
+/* ============================================================
+   Markdown プレビュー
+   ============================================================ */
+.md-preview {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: #2D3748;
+}
+
+.md-preview p {
+  margin-bottom: 1rem;
+}
+
+.md-preview h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1A3A5C;
+  margin: 1.5rem 0 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #E4E9EF;
+}
+
+.md-preview h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1A3A5C;
+  margin: 1.25rem 0 0.6rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid #E4E9EF;
+}
+
+.md-preview h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2A527A;
+  margin: 1rem 0 0.5rem;
+}
+
+.md-preview strong {
+  font-weight: 600;
+  color: #1A3A5C;
+}
+
+.md-preview em {
+  font-style: italic;
+  color: #4A5568;
+}
+
+.md-preview ul,
+.md-preview ol {
+  margin: 0.75rem 0 0.75rem 1.5rem;
+}
+
+.md-preview li {
+  margin-bottom: 0.35rem;
+}
+
+.md-preview li.checked {
+  list-style: none;
+  margin-left: -1rem;
+}
+
+.md-preview li.unchecked {
+  list-style: none;
+  margin-left: -1rem;
+}
+
+.md-preview .cb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1em;
+  height: 1.1em;
+  border: 1.5px solid #C8D3DF;
+  border-radius: 3px;
+  font-size: 0.7em;
+  margin-right: 0.5rem;
+  vertical-align: middle;
+  color: transparent;
+}
+
+.md-preview .cb.checked {
+  background: #0B7A6E;
+  border-color: #0B7A6E;
+  color: white;
+}
+
+.md-preview hr {
+  border: none;
+  border-top: 1px solid #E4E9EF;
+  margin: 1.5rem 0;
+}
+
+.md-preview code {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.82em;
+  background: #F5F7FA;
+  color: #1D6FA4;
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  border: 1px solid #E4E9EF;
+}
+
+.md-preview pre.code-block {
+  background: #1A3A5C;
+  color: #E4E9EF;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  position: relative;
+}
+
+.md-preview pre.code-block::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  font-size: 0.65rem;
+  color: #8A9BB0;
+  font-family: 'DM Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.md-preview pre.code-block code {
+  background: transparent;
+  color: #E4E9EF;
+  border: none;
+  padding: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   Word プレビュー
+   ============================================================ */
+.word-preview {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: #2D3748;
+}
+
+.word-preview h1,
+.word-preview h2,
+.word-preview h3 {
+  color: #1A3A5C;
+  font-weight: 600;
+  margin: 1rem 0 0.5rem;
+}
+
+.word-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.85rem;
+}
+
+.word-preview th {
+  background: #F5F7FA;
+  color: #1A3A5C;
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #E4E9EF;
+  text-align: left;
+}
+
+.word-preview td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #E4E9EF;
+}
+
+/* ============================================================
+   エディタ textarea スクロールバー
+   ============================================================ */
+textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+textarea::-webkit-scrollbar-thumb {
+  background: #C8D3DF;
+  border-radius: 3px;
+}
+
+textarea::-webkit-scrollbar-thumb:hover {
+  background: #8A9BB0;
+}
+
+/* ============================================================
+   input[type=range] カスタムスタイル（DocumentEditor用）
+   ============================================================ */
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: #E4E9EF;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #1D6FA4;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 0 0 1px #1D6FA4;
+}

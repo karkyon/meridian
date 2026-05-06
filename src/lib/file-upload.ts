@@ -1,103 +1,165 @@
-import { writeFile, mkdir, unlink } from "fs/promises";
+/**
+ * file-upload.ts
+ * ファイルアップロード・テキスト抽出ユーティリティ
+ * 対応形式: .md .markdown .docx .doc .pdf .html .htm
+ */
+
+import { writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
-import crypto from "crypto";
+import { randomUUID } from "crypto";
 
-export const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/home/karkyon/projects/meridian/uploads";
-export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+// ============================================================
+// 型定義
+// ============================================================
+export type SupportedFileType = "md" | "docx" | "doc" | "pdf" | "html";
 
-export const ALLOWED_MIME_TYPES: Record<string, "word" | "pdf" | "markdown"> = {
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "word",
-  "application/msword": "word",
-  "application/pdf": "pdf",
-  "text/markdown": "markdown",
-  "text/plain": "markdown", // .md ファイルはtext/plainで来ることもある
+export interface UploadedFile {
+  id: string;
+  filename: string;
+  fileType: SupportedFileType;
+  fileSize: number;
+  storagePath: string;
+  extractedText?: string;
+}
+
+// ============================================================
+// 設定
+// ============================================================
+const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/home/karkyon/projects/meridian/uploads";
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+const ALLOWED_EXTENSIONS: Record<string, SupportedFileType> = {
+  ".md": "md",
+  ".markdown": "md",
+  ".docx": "docx",
+  ".doc": "doc",
+  ".pdf": "pdf",
+  ".html": "html",
+  ".htm": "html",
 };
 
-export type FileType = "word" | "pdf" | "markdown" | "other";
-
-export async function ensureUploadDir(projectId: string): Promise<string> {
-  const dir = path.join(UPLOAD_DIR, projectId);
-  if (!existsSync(dir)) {
-    await mkdir(dir, { recursive: true });
-  }
-  return dir;
-}
-
-export function generateFilename(originalName: string): string {
-  const ext = path.extname(originalName);
-  const hash = crypto.randomBytes(8).toString("hex");
-  const timestamp = Date.now();
-  return `${timestamp}_${hash}${ext}`;
-}
-
-export async function saveFile(
-  buffer: Buffer,
-  projectId: string,
-  filename: string
-): Promise<string> {
-  const dir = await ensureUploadDir(projectId);
-  const filePath = path.join(dir, filename);
-  await writeFile(filePath, buffer);
-  return filePath;
-}
-
-export async function deleteFile(storagePath: string): Promise<void> {
-  try {
-    await unlink(storagePath);
-  } catch {
-    // ファイルが存在しない場合は無視
-  }
-}
-
-export function detectFileType(mimeType: string, filename: string): FileType {
-  if (ALLOWED_MIME_TYPES[mimeType]) return ALLOWED_MIME_TYPES[mimeType];
+// ============================================================
+// ファイル種別判定
+// ============================================================
+export function getFileType(filename: string): SupportedFileType | null {
   const ext = path.extname(filename).toLowerCase();
-  if ([".docx", ".doc"].includes(ext)) return "word";
-  if (ext === ".pdf") return "pdf";
-  if ([".md", ".markdown"].includes(ext)) return "markdown";
-  return "other";
+  return ALLOWED_EXTENSIONS[ext] ?? null;
 }
 
-// テキスト抽出（Word/Markdown はサーバー側で処理、PDF は基本テキスト取得）
-export async function extractTextFromBuffer(
+// ============================================================
+// テキスト抽出
+// ============================================================
+export async function extractText(
   buffer: Buffer,
-  fileType: FileType,
+  fileType: SupportedFileType,
   filename: string
 ): Promise<string> {
-  try {
-    if (fileType === "markdown") {
-      // Markdownはそのまま返す
+  switch (fileType) {
+    case "md":
+      return buffer.toString("utf-8");
+
+    case "html": {
+      // HTMLはそのままテキストとして返す（プレビューはクライアント側でレンダリング）
       return buffer.toString("utf-8");
     }
 
-    if (fileType === "word") {
-      // mammoth を使用してWordからテキスト抽出
-      const mammoth = await import("mammoth");
-      const result = await mammoth.extractRawText({ buffer });
-      return result.value;
-    }
-
-    if (fileType === "pdf") {
+    case "docx":
+    case "doc": {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const pdfParse = require("pdf-parse");
-        const data = await pdfParse(buffer);
-        return data.text ?? "";
+        // mammothはrequire形式で使用
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const mammoth = require("mammoth");
+        const result = await mammoth.extractRawText({ buffer });
+        return result.value || "";
       } catch {
-        return `[PDF: ${filename} のテキスト抽出に失敗しました。内容を手動で入力してください]`;
+        return "[Word文書の内容を抽出できませんでした]";
       }
     }
 
-    return "";
-  } catch (err) {
-    console.error("[extractText] error:", err);
-    return "";
+    case "pdf": {
+      try {
+        // pdf-parseはrequire形式で使用
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const pdfParse = require("pdf-parse");
+        const result = await pdfParse(buffer);
+        return result.text || "";
+      } catch {
+        return "[PDFの内容を抽出できませんでした]";
+      }
+    }
+
+    default:
+      return "";
   }
 }
 
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+// ============================================================
+// HTMLからテキスト抽出（RAG用）
+// ============================================================
+export function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// ============================================================
+// ファイル保存
+// ============================================================
+export async function saveFile(
+  buffer: Buffer,
+  originalFilename: string,
+  subDir: string
+): Promise<{ storagePath: string; filename: string }> {
+  const dir = path.join(UPLOAD_DIR, subDir);
+  if (!existsSync(dir)) {
+    await mkdir(dir, { recursive: true });
+  }
+
+  const ext = path.extname(originalFilename).toLowerCase();
+  const safeName = `${randomUUID()}${ext}`;
+  const storagePath = path.join(dir, safeName);
+  await writeFile(storagePath, buffer);
+
+  return { storagePath, filename: safeName };
+}
+
+// ============================================================
+// アップロードハンドラ（Next.js API Route用）
+// ============================================================
+export async function handleFileUpload(
+  formData: FormData,
+  subDir: string
+): Promise<UploadedFile[]> {
+  const uploaded: UploadedFile[] = [];
+
+  const files = formData.getAll("file") as File[];
+  for (const file of files) {
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error(`ファイルサイズが上限(5MB)を超えています: ${file.name}`);
+    }
+
+    const fileType = getFileType(file.name);
+    if (!fileType) {
+      throw new Error(`非対応のファイル形式です: ${path.extname(file.name)}`);
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const { storagePath } = await saveFile(buffer, file.name, subDir);
+    const extractedText = await extractText(buffer, fileType, file.name);
+
+    uploaded.push({
+      id: randomUUID(),
+      filename: file.name,
+      fileType,
+      fileSize: file.size,
+      storagePath,
+      extractedText,
+    });
+  }
+
+  return uploaded;
 }

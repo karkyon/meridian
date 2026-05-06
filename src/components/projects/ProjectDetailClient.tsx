@@ -1,357 +1,268 @@
 "use client";
 
-import DocumentUploadButton from "@/components/documents/DocumentUploadButton";
-import CustomDocsTab from "@/components/custom-docs/CustomDocsTab";
-
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  FileText, Folder, Plus, ChevronRight, Zap,
+  BarChart2, Clock, CheckCircle2, AlertCircle,
+  Paperclip, Globe
+} from "lucide-react";
 
-const DOC_TYPE_LABELS: Record<string, string> = {
-  planning: "企画書",
-  requirements: "要件定義書",
-  external_spec: "外部仕様設計書",
-  db_spec: "DB仕様設計書",
-  api_spec: "API詳細設計書",
-};
+// ============================================================
+// 型定義
+// ============================================================
+type FileType = "md" | "docx" | "doc" | "pdf" | "html";
 
-const STATUS_LABELS: Record<string, { label: string; class: string }> = {
-  planning: { label: "企画中", class: "bg-violet-100 text-violet-700" },
-  active: { label: "開発中", class: "bg-blue-100 text-blue-700" },
-  paused: { label: "停止中", class: "bg-amber-100 text-amber-700" },
-  completed: { label: "完了", class: "bg-emerald-100 text-emerald-700" },
-};
+interface DocFile {
+  id: string;
+  filename: string;
+  fileType: FileType;
+  fileSize: number;
+}
 
-const TASK_STATUS: Record<string, { label: string; class: string }> = {
-  todo: { label: "未着手", class: "bg-slate-100 text-slate-600" },
-  in_progress: { label: "進行中", class: "bg-blue-100 text-blue-700" },
-  done: { label: "完了", class: "bg-emerald-100 text-emerald-700" },
-  blocked: { label: "ブロック", class: "bg-red-100 text-red-700" },
-};
+interface StandardDoc {
+  type: string;
+  label: string;
+  completeness: number;
+  version: number;
+  fileCount: number;
+  exists: boolean;
+}
 
-type Task = {
-  id: string; title: string; status: string; priority: string;
-  dueDate: Date | null; estimatedHours: unknown; sortOrder: number;
-  aiGenerated: boolean; completedAt: Date | null; createdAt: Date; updatedAt: Date;
-};
+interface CustomDocType {
+  key: string;
+  label: string;
+  icon?: string;
+  completeness: number;
+  version: number;
+  fileCount: number;
+  exists: boolean;
+}
 
-type Phase = {
-  id: string; name: string; sortOrder: number; color: string | null;
-  tasks: Task[];
-};
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  progressCache: number;
+  docCompleteness: number;
+}
 
-type Document = {
-  id: string; docType: string; content: string | null;
-  completeness: number; aiGenerated: boolean; version: number; updatedAt: Date;
-  _count?: { files: number };
-  fileCount?: number;
-};
-
-type Project = {
-  id: string; name: string; description: string | null;
-  status: string; category: string | null; techStack: unknown;
-  repositoryUrl: string | null; notes: string | null;
-  priorityScore: number; progressCache: unknown; docCompleteness: unknown;
-  documents: Document[]; wbsPhases: Phase[];
-};
-
-const TABS = ["概要", "ドキュメント", "WBS", "添付資料"] as const;
-
-export default function ProjectDetailClient({
-  project,
-  role,
-}: {
+interface Props {
   project: Project;
-  role: string;
+  standardDocs: StandardDoc[];
+  customDocTypes: CustomDocType[];
+  attachmentCount: number;
+  activeTab?: string;
+}
+
+// ============================================================
+// 標準5種 + ワイヤーフレームの定義
+// ============================================================
+const STANDARD_DOC_TYPES = [
+  { type: "plan",     label: "企画書",       icon: "📋" },
+  { type: "req",      label: "要件定義",     icon: "📌" },
+  { type: "spec",     label: "外部仕様設計", icon: "📐" },
+  { type: "db",       label: "DB仕様",       icon: "🗄️" },
+  { type: "api",      label: "API詳細",      icon: "🔌" },
+  { type: "wireframe",label: "ワイヤーフレーム", icon: "🖼️" },  // ← 追加
+];
+
+// ============================================================
+// ドキュメントカード
+// ============================================================
+function DocCard({
+  icon, label, completeness, version, fileCount, href, exists
+}: {
+  icon: string;
+  label: string;
+  completeness: number;
+  version: number;
+  fileCount: number;
+  href: string;
+  exists: boolean;
 }) {
-  const router = useRouter();
-  const [tab, setTab] = useState<(typeof TABS)[number]>("概要");
-  const [taskStatuses, setTaskStatuses] = useState<Record<string, string>>(
-    Object.fromEntries(
-      project.wbsPhases.flatMap((p) => p.tasks.map((t) => [t.id, t.status]))
-    )
-  );
-
-  const isAdmin = role === "admin";
-  const techStack = Array.isArray(project.techStack) ? (project.techStack as string[]) : [];
-  const status = STATUS_LABELS[project.status] ?? STATUS_LABELS.planning;
-  const progress = Math.round(Number(project.progressCache));
-  const docRate = Math.round(Number(project.docCompleteness));
-
-  async function toggleTaskStatus(taskId: string, current: string) {
-    if (!isAdmin) return;
-    const next =
-      current === "todo" ? "in_progress"
-      : current === "in_progress" ? "done"
-      : current === "done" ? "todo"
-      : "todo";
-
-    setTaskStatuses((prev) => ({ ...prev, [taskId]: next }));
-
-    await fetch(`/api/wbs/tasks/${taskId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: next }),
-    });
-    router.refresh();
-  }
-
-  async function deleteProject() {
-    if (!confirm(`「${project.name}」を削除しますか？この操作は取り消せません。`)) return;
-    await fetch(`/api/projects/${project.id}`, { method: "DELETE" });
-    router.push("/dashboard");
-    router.refresh();
-  }
+  const barColor =
+    completeness >= 80 ? "bg-success" :
+    completeness >= 50 ? "bg-azure" :
+    completeness >= 20 ? "bg-warn-border" : "bg-slate-300";
 
   return (
-    <main className="flex-1 p-6">
-      {/* ヘッダー */}
-      <div className="flex items-start gap-3 mb-5">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-xl font-bold text-slate-800">{project.name}</h1>
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${status.class}`}>
-              {status.label}
-            </span>
+    <Link href={href} className="block group">
+      <div className="bg-white rounded-xl border border-slate-100 hover:border-azure/40 hover:shadow-panel transition-all p-4">
+        <div className="flex items-start gap-3">
+          <span className="text-xl mt-0.5">{icon}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <p className="text-sm font-medium text-navy group-hover:text-azure transition-colors truncate">
+                {label}
+              </p>
+              {exists && (
+                <span className="text-[10px] bg-azure-light text-azure px-1.5 py-0.5 rounded font-medium whitespace-nowrap">
+                  AI生成
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3 text-xs text-slate-400 mb-2">
+              <span>v{version}</span>
+              <span>📁 {fileCount}件</span>
+              <span className="ml-auto">{completeness}%</span>
+            </div>
+            <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${barColor}`}
+                style={{ width: `${completeness}%` }}
+              />
+            </div>
           </div>
-          {project.description && (
-            <p className="text-sm text-slate-500 line-clamp-2">{project.description}</p>
+          <ChevronRight size={14} className="text-slate-300 group-hover:text-azure mt-1 transition-colors" />
+        </div>
+        <div className="mt-3 flex gap-2">
+          {exists ? (
+            <span className="text-xs text-azure font-medium">編集 →</span>
+          ) : (
+            <span className="text-xs text-slate-400">作成 →</span>
           )}
         </div>
-        {isAdmin && (
-          <div className="flex gap-2 shrink-0">
-            <Link
-              href={`/projects/${project.id}/edit`}
-              className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50"
-            >
-              編集
-            </Link>
-            <button
-              onClick={deleteProject}
-              className="text-xs px-3 py-1.5 border border-red-200 rounded-lg text-red-500 hover:bg-red-50"
-            >
-              削除
-            </button>
-          </div>
-        )}
       </div>
+    </Link>
+  );
+}
 
+// ============================================================
+// メインコンポーネント
+// ============================================================
+export function ProjectDetailClient({
+  project,
+  standardDocs,
+  customDocTypes,
+  attachmentCount,
+  activeTab: initialTab = "docs",
+}: Props) {
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // 標準ドキュメントをtype→データのmapに変換
+  const standardDocMap = new Map(standardDocs.map(d => [d.type, d]));
+
+  // STANDARD_DOC_TYPES と実データをマージ
+  const mergedStandardDocs = STANDARD_DOC_TYPES.map(def => {
+    const data = standardDocMap.get(def.type);
+    return {
+      ...def,
+      completeness: data?.completeness ?? 0,
+      version: data?.version ?? 0,
+      fileCount: data?.fileCount ?? 0,
+      exists: data?.exists ?? false,
+    };
+  });
+
+  const tabs = [
+    { id: "docs", label: "ドキュメント", icon: <FileText size={14} /> },
+    { id: "attachments", label: "添付資料", icon: <Paperclip size={14} />, count: attachmentCount },
+  ];
+
+  return (
+    <div className="flex flex-col gap-4">
       {/* タブ */}
-      <div className="flex border-b border-slate-200 mb-5">
-        {TABS.map((t) => (
+      <div className="flex items-center gap-0 border-b border-slate-200 bg-white -mx-4 px-4 sm:mx-0 sm:px-0 sm:rounded-t-xl sm:border sm:border-b-0 sm:px-4">
+        {tabs.map(tab => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              tab === t
-                ? "border-[#1D6FA4] text-[#1D6FA4] bg-white"
-                : "border-transparent text-slate-500 hover:text-slate-700"
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-1.5 px-4 py-3 text-sm border-b-2 transition-colors ${
+              activeTab === tab.id
+                ? "border-azure text-azure font-medium"
+                : "border-transparent text-slate-400 hover:text-slate-600"
             }`}
           >
-            {t}
+            {tab.icon}
+            {tab.label}
+            {tab.count !== undefined && tab.count > 0 && (
+              <span className="ml-1 text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">
+                {tab.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* 概要タブ */}
-      {tab === "概要" && (
-        <div className="space-y-4 max-w-2xl">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white rounded-xl border border-slate-100 p-4">
-              <div className="text-xs text-slate-400 mb-1">WBS進捗</div>
-              <div className="text-2xl font-bold text-slate-800">{progress}%</div>
-              <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full ${
-                    progress >= 80 ? "bg-emerald-500" : progress >= 50 ? "bg-blue-500" : "bg-amber-500"
-                  }`}
-                  style={{ width: `${Math.min(progress, 100)}%` }}
-                />
-              </div>
+      {activeTab === "docs" && (
+        <div className="space-y-4">
+          {/* AI一括生成バナー */}
+          <Link
+            href={`/projects/${project.id}/generate`}
+            className="flex items-center gap-3 p-4 bg-gradient-to-r from-violet-light to-azure-light border border-violet-border rounded-xl hover:shadow-panel transition-all group"
+          >
+            <Zap size={18} className="text-violet" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-violet">AI一括生成</p>
+              <p className="text-xs text-violet/70">プロジェクト情報からドキュメントを自動生成</p>
             </div>
-            <div className="bg-white rounded-xl border border-slate-100 p-4">
-              <div className="text-xs text-slate-400 mb-1">ドキュメント整備率</div>
-              <div className="text-2xl font-bold text-slate-800">{docRate}%</div>
-              <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                <div className="h-full bg-violet-500 rounded-full" style={{ width: `${docRate}%` }} />
-              </div>
-            </div>
+            <ChevronRight size={14} className="text-violet/50 group-hover:text-violet transition-colors" />
+          </Link>
+
+          {/* 標準6種（企画書〜APIとワイヤーフレーム） */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {mergedStandardDocs.map(doc => (
+              <DocCard
+                key={doc.type}
+                icon={doc.icon}
+                label={doc.label}
+                completeness={doc.completeness}
+                version={doc.version}
+                fileCount={doc.fileCount}
+                href={`/projects/${project.id}/documents/${doc.type}`}
+                exists={doc.exists}
+              />
+            ))}
           </div>
 
-          {project.category && (
-            <div className="bg-white rounded-xl border border-slate-100 p-4">
-              <div className="text-xs text-slate-400 mb-1">カテゴリ</div>
-              <div className="text-sm text-slate-700">{project.category}</div>
-            </div>
-          )}
-
-          {techStack.length > 0 && (
-            <div className="bg-white rounded-xl border border-slate-100 p-4">
-              <div className="text-xs text-slate-400 mb-2">技術スタック</div>
-              <div className="flex flex-wrap gap-1.5">
-                {techStack.map((tech) => (
-                  <span key={tech} className="text-xs bg-[#1A3A5C]/10 text-[#1A3A5C] px-2 py-1 rounded-full">
-                    {tech}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {project.repositoryUrl && (
-            <div className="bg-white rounded-xl border border-slate-100 p-4">
-              <div className="text-xs text-slate-400 mb-1">リポジトリ</div>
-              <a href={project.repositoryUrl} target="_blank" rel="noopener noreferrer"
-                className="text-sm text-[#1D6FA4] hover:underline break-all">
-                {project.repositoryUrl}
-              </a>
-            </div>
-          )}
-
-          {project.notes && (
-            <div className="bg-white rounded-xl border border-slate-100 p-4">
-              <div className="text-xs text-slate-400 mb-1">メモ</div>
-              <div className="text-sm text-slate-700 whitespace-pre-wrap">{project.notes}</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ドキュメントタブ */}
-      {tab === "ドキュメント" && (
-        <div className="space-y-3 max-w-2xl">
-          {isAdmin && (
-            <Link href={`/projects/${project.id}/generate`}
-              className="flex items-center gap-2 w-full bg-[#1A3A5C] text-white rounded-xl p-4 hover:bg-[#2A527A] transition-colors">
-              <span className="text-lg">🤖</span>
-              <div>
-                <div className="text-sm font-semibold">AI一括生成</div>
-                <div className="text-xs opacity-70">Claude APIで5種ドキュメントを自動生成</div>
-              </div>
-            </Link>
-          )}
-          {project.documents.map((doc) => (
-            <div key={doc.id} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-colors">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-slate-700">
-                    {DOC_TYPE_LABELS[doc.docType] ?? doc.docType}
-                  </span>
-                  {doc.aiGenerated && (
-                    <span className="text-[10px] px-1.5 py-0.5 bg-violet-100 text-violet-600 rounded">AI生成</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-xs text-slate-400">完成度 {doc.completeness}%</span>
-                  <span className="text-xs text-slate-400">v{doc.version}</span>
-                  {(doc.fileCount ?? 0) > 0 && (
-                    <span className="text-xs text-slate-400">📁 {doc.fileCount}件</span>
-                  )}
-                  <div className="w-20 h-1 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-[#1D6FA4] rounded-full transition-all" style={{ width: `${doc.completeness}%` }} />
-                  </div>
-                </div>
-              </div>
-              <Link
-                href={`/projects/${project.id}/documents/${doc.docType}`}
-                className="ml-4 text-xs px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 hover:border-[#1D6FA4] hover:text-[#1D6FA4] transition-colors shrink-0"
-              >
-                {doc.completeness === 0 && !doc.aiGenerated ? "作成 →" : "編集 →"}
-              </Link>
-            </div>
-          ))}
-          <div className="flex items-center gap-3 mt-4 mb-2">
-            <div className="h-px flex-1 bg-slate-100" />
-            <span className="text-xs text-slate-400 font-medium">技術・設計ドキュメント</span>
-            <div className="h-px flex-1 bg-slate-100" />
+          {/* 区切り */}
+          <div className="flex items-center gap-3 py-1">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-xs text-slate-400 whitespace-nowrap">技術・設計ドキュメント</span>
+            <div className="flex-1 h-px bg-slate-200" />
           </div>
-          <CustomDocsTab projectId={project.id} role={role} />
-        </div>
-      )}
 
-      {/* WBSタブ */}
-      {tab === "WBS" && (
-        <div className="space-y-4 max-w-3xl">
-          {isAdmin && (
-            <div className="flex gap-2">
-              <Link href={`/projects/${project.id}/wbs`}
-                className="text-xs px-3 py-1.5 border border-[#1D6FA4] text-[#1D6FA4] rounded-lg hover:bg-[#1D6FA4]/5">
-                WBS全画面表示
-              </Link>
-            </div>
-          )}
-          {project.wbsPhases.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 text-sm">
-              WBSが設定されていません
-              {isAdmin && (
-                <div className="mt-2">
-                  <Link href={`/projects/${project.id}/wbs`} className="text-[#1D6FA4] hover:underline text-xs">
-                    WBS管理画面へ →
-                  </Link>
-                </div>
-              )}
-            </div>
-          ) : (
-            project.wbsPhases.map((phase) => {
-              const total = phase.tasks.length;
-              const done = phase.tasks.filter((t) => taskStatuses[t.id] === "done").length;
-              return (
-                <div key={phase.id} className="bg-white rounded-xl border border-slate-100 overflow-hidden">
-                  <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: phase.color ?? "#1D6FA4" }} />
-                    <span className="text-sm font-semibold text-slate-700">{phase.name}</span>
-                    <span className="ml-auto text-xs text-slate-400">{total > 0 ? `${done}/${total}` : "0件"}</span>
-                  </div>
-                  <div className="divide-y divide-slate-50">
-                    {phase.tasks.map((task) => {
-                      const st = taskStatuses[task.id] ?? task.status;
-                      const stConfig = TASK_STATUS[st] ?? TASK_STATUS.todo;
-                      return (
-                        <div key={task.id} className="flex items-center gap-3 px-4 py-2.5">
-                          <button
-                            onClick={() => toggleTaskStatus(task.id, st)}
-                            disabled={!isAdmin}
-                            className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-colors ${
-                              st === "done"
-                                ? "border-emerald-500 bg-emerald-500"
-                                : "border-slate-300 hover:border-[#1D6FA4]"
-                            } ${!isAdmin ? "cursor-default" : "cursor-pointer"}`}
-                          >
-                            {st === "done" && <span className="text-white text-[10px]">✓</span>}
-                          </button>
-                          <span className={`flex-1 text-sm ${st === "done" ? "line-through text-slate-400" : "text-slate-700"}`}>
-                            {task.title}
-                          </span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${stConfig.class}`}>
-                            {stConfig.label}
-                          </span>
-                          {task.dueDate && (
-                            <span className={`text-[10px] ${new Date(task.dueDate) < new Date() && st !== "done" ? "text-red-500 font-medium" : "text-slate-400"}`}>
-                              {new Date(task.dueDate).toLocaleDateString("ja-JP", { month: "short", day: "numeric" })}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      )}
-
-
-      {/* 添付資料タブ */}
-      {tab === "添付資料" && (
-        <div className="max-w-3xl space-y-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs text-slate-500">Word / PDF / Markdownを保管し、AI生成の参照資料として活用できます</p>
-            <a href={`/projects/${project.id}/attachments`} className="text-xs text-[#1D6FA4] hover:underline">参考資料を管理 →</a>
+          {/* カスタムドキュメント */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {customDocTypes.map(doc => (
+              <DocCard
+                key={doc.key}
+                icon="📝"
+                label={doc.label}
+                completeness={doc.completeness}
+                version={doc.version}
+                fileCount={doc.fileCount}
+                href={`/projects/${project.id}/custom-docs/${doc.key}`}
+                exists={doc.exists}
+              />
+            ))}
           </div>
+
+          {/* カテゴリ追加ボタン */}
+          <button className="w-full flex items-center justify-center gap-2 p-3 border-2 border-dashed border-slate-200 rounded-xl text-sm text-slate-400 hover:border-azure hover:text-azure transition-colors">
+            <Plus size={14} />
+            カテゴリ追加
+          </button>
         </div>
       )}
 
-    </main>
+      {activeTab === "attachments" && (
+        <div className="text-center py-12">
+          <Paperclip size={32} className="mx-auto mb-3 text-slate-300" />
+          <p className="text-sm text-slate-400 mb-3">参考資料ライブラリ</p>
+          <Link
+            href={`/projects/${project.id}/attachments`}
+            className="inline-flex items-center gap-2 text-sm text-azure hover:underline"
+          >
+            全画面で管理 <ChevronRight size={14} />
+          </Link>
+        </div>
+      )}
+    </div>
   );
 }
+
+export default ProjectDetailClient;
