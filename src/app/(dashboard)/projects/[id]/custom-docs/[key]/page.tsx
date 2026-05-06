@@ -61,6 +61,7 @@ export default async function CustomDocPage({ params }: Params) {
           aiGenerated: v.aiGenerated,
         }))}
         role={role}
+        isCustom={true}
       />
     </>
   );

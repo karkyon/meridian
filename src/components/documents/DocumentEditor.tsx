@@ -16,8 +16,8 @@ type FileType = "md" | "docx" | "doc" | "pdf" | "html";
 
 interface DocFile {
   id: string;
-  filename: string;
-  fileType: FileType;
+  originalName: string;
+  fileType: string;
   fileSize: number;
   createdAt: string;
 }
@@ -25,9 +25,10 @@ interface DocFile {
 interface DocumentEditorProps {
   projectId: string;
   projectName: string;
-  docType: string;            // 標準5種のtype
+  docType: string;
   initialContent: string;
-  initialVersion: number;
+  initialVersion?: number;
+  version?: number;
   initialCompleteness: number;
   initialFiles?: DocFile[];
   isCustom?: false;
@@ -36,12 +37,17 @@ interface DocumentEditorProps {
 interface CustomDocEditorProps {
   projectId: string;
   projectName: string;
-  docKey: string;             // カスタムドキュメントのkey
-  docTitle: string;
+  docKey?: string;
+  typeKey?: string;
+  docTitle?: string;
+  typeLabel?: string;
   initialContent: string;
-  initialVersion: number;
+  initialVersion?: number;
+  version?: number;
   initialCompleteness: number;
   initialFiles?: DocFile[];
+  versions?: { version: number; createdAt: string; aiGenerated: boolean }[];
+  role?: string;
   isCustom: true;
 }
 
@@ -382,14 +388,14 @@ function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabP
               <div key={file.id} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 hover:border-slate-200 group">
                 <span className="text-lg">{getFileIcon(file.fileType)}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-navy truncate">{file.filename}</p>
+                  <p className="text-sm font-medium text-navy truncate">{file.originalName}</p>
                   <p className="text-xs text-slate-400">
                     {formatBytes(file.fileSize)} · {new Date(file.createdAt).toLocaleDateString("ja-JP")}
                   </p>
                 </div>
                 <a
                   href={downloadUrl(file.id)}
-                  download={file.filename}
+                  download={file.originalName}
                   className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-navy opacity-0 group-hover:opacity-100 transition-all"
                 >
                   <Download size={14} />
@@ -475,7 +481,7 @@ export function DocumentEditor(props: Props) {
 
   const projectId = props.projectId;
   const isCustom = props.isCustom === true;
-  const docKey = isCustom ? (props as CustomDocEditorProps).docKey : (props as DocumentEditorProps).docType;
+  const docKey = isCustom ? ((props as CustomDocEditorProps).docKey ?? (props as CustomDocEditorProps).typeKey ?? "") : (props as DocumentEditorProps).docType;
 
   // ファイルタイプを判定（アップロードされたファイルから判断するか、デフォルトMD）
   // ここではエディタのlanguageを決める
@@ -534,11 +540,11 @@ export function DocumentEditor(props: Props) {
   };
 
   const version = isCustom
-    ? (props as CustomDocEditorProps).initialVersion
-    : (props as DocumentEditorProps).initialVersion;
+    ? ((props as CustomDocEditorProps).initialVersion ?? (props as CustomDocEditorProps).version ?? 1)
+    : ((props as DocumentEditorProps).initialVersion ?? (props as DocumentEditorProps).version ?? 1);
 
   const title = isCustom
-    ? (props as CustomDocEditorProps).docTitle
+    ? ((props as CustomDocEditorProps).docTitle ?? (props as CustomDocEditorProps).typeLabel ?? docKey)
     : docKey;
 
   // ビューモードのボタン

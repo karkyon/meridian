@@ -22,10 +22,13 @@ export default async function ProjectDetailPage({ params }: Params) {
       },
       wbsPhases: {
         orderBy: { sortOrder: "asc" },
+        include: { tasks: { orderBy: { sortOrder: "asc" } } },
+      },
+      attachments: { select: { id: true } },
+      customDocuments: {
         include: {
-          tasks: {
-            orderBy: { sortOrder: "asc" },
-          },
+          customDocType: { select: { key: true, label: true } },
+          _count: { select: { files: true } },
         },
       },
     },
@@ -33,15 +36,10 @@ export default async function ProjectDetailPage({ params }: Params) {
 
   if (!project) notFound();
 
-  // _countをシリアライズ可能な形に変換
   const serializedProject = {
     ...project,
     progressCache: Number(project.progressCache),
     docCompleteness: Number(project.docCompleteness),
-    documents: project.documents.map((d) => ({
-      ...d,
-      fileCount: d._count?.files ?? 0,
-    })),
     wbsPhases: project.wbsPhases.map((p) => ({
       ...p,
       tasks: p.tasks.map((t) => ({
@@ -51,10 +49,52 @@ export default async function ProjectDetailPage({ params }: Params) {
     })),
   };
 
+  const documents = project.documents.map((d) => ({
+    docType: d.docType as string,
+    completeness: d.completeness,
+    version: d.version,
+    fileCount: d._count?.files ?? 0,
+    aiGenerated: d.aiGenerated,
+  }));
+
+  // グローバルカスタムdocタイプ一覧取得
+  const globalCustomTypes = await prisma.customDocType.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: "asc" },
+  });
+  const projectCustomTypes = await prisma.projectCustomDocType.findMany({
+    where: { projectId: params.id },
+    orderBy: { sortOrder: "asc" },
+  });
+  const allCustomKeys = [
+    ...globalCustomTypes.map(t => t.key),
+    ...projectCustomTypes.map(t => t.key),
+  ];
+  const customDocMap = new Map(project.customDocuments.map(d => [d.customTypeKey, d]));
+  const customDocTypes = [
+    ...globalCustomTypes.map(t => ({ key: t.key, label: t.label })),
+    ...projectCustomTypes.map(t => ({ key: t.key, label: t.label })),
+  ].map(t => {
+    const doc = customDocMap.get(t.key);
+    return {
+      key: t.key,
+      label: t.label,
+      completeness: doc?.completeness ?? 0,
+      version: doc?.version ?? 0,
+      fileCount: doc?._count?.files ?? 0,
+    };
+  });
+
   return (
     <>
       <TopBar title={project.name} />
-      <ProjectDetailClient project={serializedProject} role={role} />
+      <ProjectDetailClient
+        project={serializedProject}
+        documents={documents}
+        customDocTypes={customDocTypes}
+        attachmentCount={project.attachments.length}
+        role={role}
+      />
     </>
   );
 }
