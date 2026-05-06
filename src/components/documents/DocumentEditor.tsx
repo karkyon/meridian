@@ -19,6 +19,7 @@ interface DocFile {
   originalName: string;
   fileType: string;
   fileSize: number;
+  isEditable?: boolean;
   createdAt: string;
 }
 
@@ -73,6 +74,34 @@ function getFileIcon(fileType: FileType) {
 // Markdown → HTML 変換（シンプル実装）
 // ============================================================
 function mdToHtml(md: string): string {
+  // テーブル変換
+  const lines = md.split("\n");
+  const processedLines: string[] = [];
+  let inTable = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const isTableRow = /^\|.+\|$/.test(line.trim());
+    const isSepRow = /^\|[-:\s|]+\|$/.test(line.trim());
+    if (isTableRow && !isSepRow) {
+      if (!inTable) {
+        processedLines.push("<table>");
+        const nextLine = lines[i + 1] ?? "";
+        if (/^\|[-:\s|]+\|$/.test(nextLine.trim())) {
+          const cells = line.trim().slice(1,-1).split("|").map((c:any)=>`<th>${c.trim()}</th>`).join("");
+          processedLines.push(`<thead><tr>${cells}</tr></thead><tbody>`);
+          i++; inTable = true; continue;
+        } else { processedLines.push("<tbody>"); }
+        inTable = true;
+      }
+      const cells = line.trim().slice(1,-1).split("|").map((c:any)=>`<td>${c.trim()}</td>`).join("");
+      processedLines.push(`<tr>${cells}</tr>`);
+    } else {
+      if (inTable) { processedLines.push("</tbody></table>"); inTable = false; }
+      processedLines.push(line);
+    }
+  }
+  if (inTable) processedLines.push("</tbody></table>");
+  md = processedLines.join("\n");
   let html = md
     // コードブロック
     .replace(/```(\w*)\n([\s\S]*?)```/g, (_m, lang, code) =>

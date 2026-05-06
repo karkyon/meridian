@@ -224,3 +224,7 @@ input[type=range]::-webkit-slider-thumb {
   border: 2px solid white;
   box-shadow: 0 0 0 1px #1D6FA4;
 }
+.md-preview table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:0.85rem; }
+.md-preview th { background:#F0F4F8; color:#1A3A5C; font-weight:600; padding:0.5rem 0.75rem; border:1px solid #CBD5E0; text-align:left; }
+.md-preview td { padding:0.45rem 0.75rem; border:1px solid #E2E8F0; color:#2D3748; }
+.md-preview tr:nth-child(even) td { background:#F7FAFC; }
