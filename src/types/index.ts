@@ -1,6 +1,6 @@
 export type UserRole = "admin" | "viewer";
 export type ProjectStatus = "planning" | "active" | "paused" | "completed";
-export type DocType = "planning" | "requirements" | "external_spec" | "db_spec" | "api_spec";
+export type DocType = "planning" | "requirements" | "external_spec" | "db_spec" | "api_spec" | "wireframe";
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
 export type TaskPriority = "high" | "mid" | "low";
 export type DelayRisk = "none" | "low" | "medium" | "high";
