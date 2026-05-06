@@ -6,7 +6,7 @@ import {
   Bold, Italic, Heading1, Heading2, Heading3, List,
   Eye, Code, FileText, Folder, Clock, Save, ChevronDown,
   Download, Trash2, Upload, X, Check, Monitor, Maximize2,
-  AlignLeft, Columns, RefreshCw
+  AlignLeft, Columns, RefreshCw, ChevronLeft
 } from "lucide-react";
 
 // ============================================================
@@ -63,11 +63,18 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
-function getFileIcon(fileType: FileType) {
-  const icons: Record<FileType, string> = {
+function getFileIcon(fileType: string) {
+  const icons: Record<string, string> = {
     md: "📝", docx: "📄", doc: "📄", pdf: "🔴", html: "🌐",
   };
   return icons[fileType] ?? "📎";
+}
+
+function getFileLabel(fileType: string) {
+  const labels: Record<string, string> = {
+    md: "Markdown", docx: "Word", doc: "Word", pdf: "PDF", html: "HTML",
+  };
+  return labels[fileType] ?? fileType.toUpperCase();
 }
 
 // ============================================================
@@ -81,7 +88,8 @@ function mdToHtml(md: string): string {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const isTableRow = /^\|.+\|$/.test(line.trim());
-    const isSepRow = /^\|[-:\s|]+\|$/.test(line.trim());
+    // セパレーター行：|---|, |:---|, |---:|, |:---:|, スペース混在すべて対応
+    const isSepRow = /^\|[\s]*[-:]+[\s]*(\|[\s]*[-:]+[\s]*)*\|[\s]*$/.test(line.trim());
     if (isTableRow && !isSepRow) {
       if (!inTable) {
         processedLines.push("<table>");
@@ -185,15 +193,19 @@ ${code}
 }
 
 // ============================================================
-// Markdownプレビュー
+// Markdownプレビュー（スクショ準拠：A4ページ風カードデザイン）
 // ============================================================
 function MarkdownPreview({ content }: { content: string }) {
   const html = mdToHtml(content);
   return (
-    <div
-      className="md-preview prose max-w-none p-6 h-full overflow-y-auto bg-white"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+    <div className="md-preview-wrap h-full overflow-y-auto">
+      <div className="md-preview-page">
+        <div
+          className="md-preview"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -302,24 +314,180 @@ function TextEditor({ value, onChange, language, viewMode }: TextEditorProps) {
 }
 
 // ============================================================
-// WORDビューア（mammothで抽出したテキストを表示）
+// WORDビューア（スクショ2準拠：A4ページ風デザイン）
 // ============================================================
-function WordViewer({ content }: { content: string }) {
-  // contentはサーバー側でmammothが抽出したHTMLまたはプレーンテキスト
-  const isHtml = /<[a-z]/.test(content);
-  if (isHtml) {
-    return (
-      <div
-        className="prose max-w-none p-6 h-full overflow-y-auto bg-white word-preview"
-        dangerouslySetInnerHTML={{ __html: content }}
-      />
-    );
-  }
+function WordViewer({ content, fileName }: { content: string; fileName?: string }) {
+  const isHtml = /<[a-z]/i.test(content);
   return (
-    <div className="p-6 h-full overflow-y-auto bg-white">
-      <pre className="whitespace-pre-wrap font-sans text-sm text-slate-700 leading-relaxed">
-        {content}
-      </pre>
+    <div className="word-preview-wrap h-full">
+      {/* トップバー */}
+      <div className="word-preview-topbar">
+        <span className="word-preview-topbar-title">{fileName ?? "Word Document"}</span>
+        <span className="word-preview-topbar-badge">DOCX</span>
+      </div>
+      {/* A4ページ */}
+      <div className="word-preview-page-wrap">
+        <div className="word-preview-page">
+          {isHtml ? (
+            <div
+              className="word-preview"
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
+          ) : (
+            <pre className="word-preview-plain">{content}</pre>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// ファイルプレビューモーダル（NEW：ファイル名クリックで開く）
+// ============================================================
+interface FilePreviewProps {
+  file: DocFile;
+  projectId: string;
+  docKey: string;
+  isCustom: boolean;
+  onClose: () => void;
+}
+
+function FilePreviewModal({ file, projectId, docKey, isCustom, onClose }: FilePreviewProps) {
+  const [previewContent, setPreviewContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editContent, setEditContent] = useState<string>("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const baseUrl = isCustom
+    ? `/api/projects/${projectId}/custom-docs/${docKey}/files/${file.id}`
+    : `/api/projects/${projectId}/documents/${docKey}/files/${file.id}`;
+
+  const fetchUrl = `${baseUrl}?action=preview`;
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(fetchUrl);
+        if (res.ok) {
+          const text = await res.text();
+          setPreviewContent(text);
+          setEditContent(text);
+        } else {
+          setPreviewContent(null);
+        }
+      } catch {
+        setPreviewContent(null);
+      }
+      setLoading(false);
+    })();
+  }, [fetchUrl]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await fetch(baseUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: editContent }),
+      });
+      setPreviewContent(editContent);
+      setSaved(true);
+      setIsEditing(false);
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const ft = file.fileType as FileType;
+  const isMd = ft === "md";
+  const isDocx = ft === "docx" || ft === "doc";
+  const isHtmlFile = ft === "html";
+  const canEdit = isMd || isHtmlFile;
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#F0F4F8]">
+      {/* モーダルヘッダー */}
+      <div className="file-preview-header">
+        <button onClick={onClose} className="file-preview-back-btn">
+          <ChevronLeft size={16} />
+          <span>戻る</span>
+        </button>
+        <div className="flex items-center gap-2 flex-1 min-w-0 mx-3">
+          <span className="text-base">{getFileIcon(file.fileType)}</span>
+          <span className="text-sm font-semibold text-[#1A3A5C] truncate">{file.originalName}</span>
+          <span className="file-type-badge">{getFileLabel(file.fileType)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {canEdit && !isEditing && (
+            <button onClick={() => setIsEditing(true)} className="file-preview-edit-btn">
+              ✏️ 編集
+            </button>
+          )}
+          {isEditing && (
+            <>
+              <button
+                onClick={() => { setIsEditing(false); setEditContent(previewContent ?? ""); }}
+                className="file-preview-cancel-btn"
+              >
+                キャンセル
+              </button>
+              <button onClick={handleSave} disabled={saving} className="file-preview-save-btn">
+                {saved ? <><Check size={13} /> 保存済み</> : saving ? "保存中..." : <><Save size={13} /> 保存</>}
+              </button>
+            </>
+          )}
+          <a href={baseUrl} download={file.originalName} className="file-preview-download-btn">
+            <Download size={14} />
+            ダウンロード
+          </a>
+        </div>
+      </div>
+
+      {/* プレビュー本体 */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <RefreshCw size={20} className="animate-spin text-azure" />
+            <span className="ml-2 text-sm text-slate-400">読み込み中...</span>
+          </div>
+        ) : previewContent === null ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3">
+            <span className="text-4xl">📄</span>
+            <p className="text-sm text-slate-400">プレビューを表示できません</p>
+            <a href={baseUrl} download={file.originalName} className="file-preview-download-btn">
+              <Download size={14} /> ダウンロード
+            </a>
+          </div>
+        ) : isEditing ? (
+          <div className="h-full flex flex-col">
+            <div className="flex-1 min-h-0">
+              <TextEditor
+                value={editContent}
+                onChange={setEditContent}
+                language={isMd ? "markdown" : "html"}
+                viewMode="split"
+              />
+            </div>
+          </div>
+        ) : isMd ? (
+          <MarkdownPreview content={previewContent} />
+        ) : isDocx ? (
+          <WordViewer content={previewContent} fileName={file.originalName} />
+        ) : isHtmlFile ? (
+          <HtmlPreview code={previewContent} />
+        ) : (
+          <div className="p-6 h-full overflow-y-auto bg-white">
+            <pre className="whitespace-pre-wrap font-mono text-sm text-slate-700 leading-relaxed">
+              {previewContent}
+            </pre>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -338,6 +506,7 @@ interface FileTabProps {
 function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabProps) {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [previewFile, setPreviewFile] = useState<DocFile | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadUrl = isCustom
@@ -362,7 +531,8 @@ function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabP
     }
   };
 
-  const handleDelete = async (fileId: string) => {
+  const handleDelete = async (fileId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!confirm("このファイルを削除しますか？")) return;
     await fetch(deleteUrl(fileId), { method: "DELETE" });
     onFilesChange(files.filter((f: any) => f.id !== fileId));
@@ -373,74 +543,93 @@ function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabP
     : `/api/projects/${projectId}/documents/${docKey}/files/${fileId}`;
 
   return (
-    <div className="h-full flex flex-col bg-white">
-      {/* ドロップゾーン */}
-      <div
-        className={`m-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-          dragOver ? "border-azure bg-azure-light/50" : "border-slate-200 hover:border-slate-300"
-        }`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files); }}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <Upload size={20} className="mx-auto mb-2 text-slate-400" />
-        <p className="text-sm text-slate-500">
-          クリックまたはドラッグでアップロード
-        </p>
-        <p className="text-xs text-slate-400 mt-1">.md .docx .pdf .html — 最大5MB</p>
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          accept=".md,.markdown,.docx,.doc,.pdf,.html,.htm"
-          multiple
-          onChange={(e) => handleUpload(e.target.files)}
+    <>
+      {/* ファイルプレビューモーダル */}
+      {previewFile && (
+        <FilePreviewModal
+          file={previewFile}
+          projectId={projectId}
+          docKey={docKey}
+          isCustom={isCustom}
+          onClose={() => setPreviewFile(null)}
         />
-      </div>
-
-      {uploading && (
-        <div className="mx-4 mb-3 flex items-center gap-2 text-sm text-azure">
-          <RefreshCw size={14} className="animate-spin" /> アップロード中...
-        </div>
       )}
 
-      {/* ファイルリスト */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {files.length === 0 ? (
-          <p className="text-sm text-slate-400 text-center py-8">
-            ファイルはまだありません
+      <div className="h-full flex flex-col bg-white">
+        {/* ドロップゾーン */}
+        <div
+          className={`m-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+            dragOver ? "border-azure bg-azure-light/50" : "border-slate-200 hover:border-slate-300"
+          }`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files); }}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Upload size={20} className="mx-auto mb-2 text-slate-400" />
+          <p className="text-sm text-slate-500">
+            クリックまたはドラッグでアップロード
           </p>
-        ) : (
-          <div className="space-y-2">
-            {files.map((file: any) => (
-              <div key={file.id} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 hover:border-slate-200 group">
-                <span className="text-lg">{getFileIcon(file.fileType)}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-navy truncate">{file.originalName}</p>
-                  <p className="text-xs text-slate-400">
-                    {formatBytes(file.fileSize)} · {new Date(file.createdAt).toLocaleDateString("ja-JP")}
-                  </p>
-                </div>
-                <a
-                  href={downloadUrl(file.id)}
-                  download={file.originalName}
-                  className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-navy opacity-0 group-hover:opacity-100 transition-all"
-                >
-                  <Download size={14} />
-                </a>
-                <button
-                  onClick={() => handleDelete(file.id)}
-                  className="p-1.5 rounded hover:bg-risk-light text-slate-400 hover:text-risk opacity-0 group-hover:opacity-100 transition-all"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
+          <p className="text-xs text-slate-400 mt-1">.md .docx .pdf .html — 最大5MB</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept=".md,.markdown,.docx,.doc,.pdf,.html,.htm"
+            multiple
+            onChange={(e) => handleUpload(e.target.files)}
+          />
+        </div>
+
+        {uploading && (
+          <div className="mx-4 mb-3 flex items-center gap-2 text-sm text-azure">
+            <RefreshCw size={14} className="animate-spin" /> アップロード中...
           </div>
         )}
+
+        {/* ファイルリスト */}
+        <div className="flex-1 overflow-y-auto px-4 pb-4">
+          {files.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">
+              ファイルはまだありません
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {files.map((file: any) => (
+                <div
+                  key={file.id}
+                  className="file-list-row group"
+                  onClick={() => setPreviewFile(file)}
+                >
+                  <span className="text-xl flex-shrink-0">{getFileIcon(file.fileType)}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-navy truncate">{file.originalName}</p>
+                    <p className="text-xs text-slate-400">
+                      {formatBytes(file.fileSize)} · {new Date(file.createdAt).toLocaleDateString("ja-JP")}
+                    </p>
+                  </div>
+                  <span className="file-type-badge flex-shrink-0">{getFileLabel(file.fileType)}</span>
+                  <a
+                    href={downloadUrl(file.id)}
+                    download={file.originalName}
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-navy opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                  >
+                    <Download size={14} />
+                  </a>
+                  <button
+                    onClick={(e) => handleDelete(file.id, e)}
+                    className="p-1.5 rounded hover:bg-risk-light text-slate-400 hover:text-risk opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

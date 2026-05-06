@@ -2,73 +2,90 @@
 @tailwind components;
 @tailwind utilities;
 
-/*
- * DocumentEditor - Markdown/HTML プレビュースタイル
- */
+/* ============================================================
+   Markdownプレビュー全体ラッパー（白背景）
+   ============================================================ */
+.md-preview-wrap {
+  background: #ffffff;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.md-preview-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 2.5rem 3rem;
+}
 
 /* ============================================================
-   Markdown プレビュー
+   Markdownコンテンツ本体
    ============================================================ */
 .md-preview {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.9rem;
+  font-family: 'DM Sans', 'Noto Sans JP', -apple-system, sans-serif;
+  font-size: 0.875rem;
   line-height: 1.75;
-  color: #2D3748;
+  color: #1a1a1a;
 }
 
 .md-preview p {
-  margin-bottom: 1rem;
+  margin-bottom: 0.85rem;
+  color: #1a1a1a;
 }
 
 .md-preview h1 {
   font-size: 1.5rem;
-  font-weight: 600;
-  color: #1A3A5C;
-  margin: 1.5rem 0 0.75rem;
+  font-weight: 700;
+  color: #111111;
+  margin: 0 0 1.25rem;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid #E4E9EF;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .md-preview h2 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #1A3A5C;
-  margin: 1.25rem 0 0.6rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #111111;
+  margin: 2rem 0 0.75rem;
   padding-bottom: 0.35rem;
-  border-bottom: 1px solid #E4E9EF;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .md-preview h3 {
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #2A527A;
-  margin: 1rem 0 0.5rem;
+  color: #222222;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.md-preview h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #333333;
+  margin: 1.25rem 0 0.4rem;
 }
 
 .md-preview strong {
-  font-weight: 600;
-  color: #1A3A5C;
+  font-weight: 700;
+  color: #111111;
 }
 
 .md-preview em {
   font-style: italic;
-  color: #4A5568;
+  color: #333333;
 }
 
 .md-preview ul,
 .md-preview ol {
-  margin: 0.75rem 0 0.75rem 1.5rem;
+  margin: 0.5rem 0 0.5rem 1.25rem;
+  padding: 0;
 }
 
 .md-preview li {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.3rem;
+  color: #1a1a1a;
 }
 
-.md-preview li.checked {
-  list-style: none;
-  margin-left: -1rem;
-}
-
+.md-preview li.checked,
 .md-preview li.unchecked {
   list-style: none;
   margin-left: -1rem;
@@ -78,137 +95,450 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.1em;
-  height: 1.1em;
-  border: 1.5px solid #C8D3DF;
-  border-radius: 3px;
-  font-size: 0.7em;
-  margin-right: 0.5rem;
+  width: 1em;
+  height: 1em;
+  border: 1.5px solid #9ca3af;
+  border-radius: 2px;
+  font-size: 0.68em;
+  margin-right: 0.4rem;
   vertical-align: middle;
   color: transparent;
 }
 
 .md-preview .cb.checked {
-  background: #0B7A6E;
-  border-color: #0B7A6E;
+  background: #16a34a;
+  border-color: #16a34a;
   color: white;
 }
 
 .md-preview hr {
   border: none;
-  border-top: 1px solid #E4E9EF;
+  border-top: 1px solid #e5e7eb;
   margin: 1.5rem 0;
 }
 
+/* インラインコード：Notion準拠（薄ピンク背景・赤文字） */
 .md-preview code {
-  font-family: 'DM Mono', monospace;
+  font-family: 'DM Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 0.82em;
-  background: #F5F7FA;
-  color: #1D6FA4;
-  padding: 0.1em 0.4em;
+  background: #fff0f0;
+  color: #e53e3e;
+  padding: 0.15em 0.45em;
   border-radius: 4px;
-  border: 1px solid #E4E9EF;
+  border: none;
+  word-break: break-all;
 }
 
+/* コードブロック：薄グレー背景・黒文字・bashラベル付き */
 .md-preview pre.code-block {
-  background: #1A3A5C;
-  color: #E4E9EF;
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
+  background: #f7f7f7;
+  color: #1a1a1a;
+  border-radius: 6px;
+  padding: 0.75rem 1rem 1rem;
   overflow-x: auto;
   margin: 1rem 0;
   position: relative;
+  border: 1px solid #e5e7eb;
+  font-family: 'DM Mono', 'Fira Code', 'Consolas', monospace;
 }
 
 .md-preview pre.code-block::before {
   content: attr(data-lang);
-  position: absolute;
-  top: 0.5rem;
-  right: 0.75rem;
+  display: block;
   font-size: 0.65rem;
-  color: #8A9BB0;
+  color: #9ca3af;
   font-family: 'DM Mono', monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.45rem;
+  font-weight: 500;
 }
 
 .md-preview pre.code-block code {
   background: transparent;
-  color: #E4E9EF;
+  color: #1a1a1a;
   border: none;
   padding: 0;
   font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+/* ============================================================
+   テーブル：Notionスタイル（スクショ2完全準拠）
+   ・罫線あり（薄グレーボーダー）
+   ・ヘッダー薄グレー背景
+   ・行ホバーハイライト
+   ・列幅は内容に応じて自動調整
+   ============================================================ */
+.md-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0 1.5rem;
+  font-size: 0.83rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  table-layout: auto; /* 列幅を内容に合わせて自動調整 */
+}
+
+.md-preview thead {
+  background: #f9fafb;
+}
+
+.md-preview th {
+  color: #374151;
+  font-weight: 600;
+  padding: 0.55rem 0.85rem;
+  text-align: left;
+  font-size: 0.80rem;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #d1d5db;
+  white-space: nowrap;
+  background: #f9fafb;
+}
+
+.md-preview th:last-child {
+  border-right: none;
+}
+
+.md-preview td {
+  padding: 0.5rem 0.85rem;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  color: #1a1a1a;
+  vertical-align: top;
   line-height: 1.6;
 }
 
+.md-preview td:last-child {
+  border-right: none;
+}
+
+.md-preview tr:last-child td {
+  border-bottom: none;
+}
+
+.md-preview tbody tr:hover td {
+  background: #f0f9ff;
+  transition: background 0.1s;
+}
+
 /* ============================================================
-   Word プレビュー
+   Wordプレビュー（同じNotionスタイル）
    ============================================================ */
-.word-preview {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.9rem;
-  line-height: 1.75;
-  color: #2D3748;
+.word-preview-wrap {
+  background: #ffffff;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
 }
 
-.word-preview h1,
-.word-preview h2,
-.word-preview h3 {
-  color: #1A3A5C;
+.word-preview-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.word-preview-topbar-title {
+  font-size: 0.8rem;
   font-weight: 600;
-  margin: 1rem 0 0.5rem;
+  color: #374151;
+  font-family: 'DM Sans', sans-serif;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.word-preview-topbar-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #4b5563;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  padding: 0.1rem 0.5rem;
+  border-radius: 3px;
+  letter-spacing: 0.05em;
+}
+
+.word-preview-page-wrap {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.word-preview-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 2.5rem 3rem;
+  background: #ffffff;
+  min-height: 100%;
+}
+
+.word-preview {
+  font-family: 'DM Sans', 'Noto Sans JP', sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.75;
+  color: #1a1a1a;
+}
+
+.word-preview h1 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #111111;
+  margin: 0 0 1.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.word-preview h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111111;
+  margin: 2rem 0 0.65rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.word-preview h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #222222;
+  margin: 1.25rem 0 0.4rem;
+}
+
+.word-preview p {
+  margin-bottom: 0.85rem;
+  color: #1a1a1a;
+}
+
+.word-preview strong { font-weight: 700; color: #111111; }
+.word-preview ul, .word-preview ol { margin: 0.5rem 0 0.5rem 1.25rem; }
+.word-preview li { margin-bottom: 0.3rem; color: #1a1a1a; }
+
+.word-preview code {
+  font-family: 'DM Mono', 'Consolas', monospace;
+  font-size: 0.82em;
+  background: #fff0f0;
+  color: #e53e3e;
+  padding: 0.15em 0.45em;
+  border-radius: 4px;
+  border: none;
+}
+
+.word-preview pre {
+  background: #f7f7f7;
+  color: #1a1a1a;
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+  border: 1px solid #e5e7eb;
+  font-family: 'DM Mono', 'Consolas', monospace;
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+
+/* テーブル：Notionスタイル（Wordプレビューも同じ） */
 .word-preview table {
   width: 100%;
   border-collapse: collapse;
-  margin: 1rem 0;
-  font-size: 0.85rem;
+  margin: 1rem 0 1.5rem;
+  font-size: 0.83rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  table-layout: auto;
+}
+
+.word-preview thead {
+  background: #f9fafb;
 }
 
 .word-preview th {
-  background: #F5F7FA;
-  color: #1A3A5C;
+  color: #374151;
   font-weight: 600;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #E4E9EF;
+  padding: 0.55rem 0.85rem;
   text-align: left;
+  background: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #d1d5db;
+  font-size: 0.80rem;
+  white-space: nowrap;
 }
+
+.word-preview th:last-child { border-right: none; }
 
 .word-preview td {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #E4E9EF;
+  padding: 0.5rem 0.85rem;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  color: #1a1a1a;
+  vertical-align: top;
+  line-height: 1.6;
+}
+
+.word-preview td:last-child { border-right: none; }
+.word-preview tr:last-child td { border-bottom: none; }
+
+.word-preview tbody tr:hover td {
+  background: #f0f9ff;
+  transition: background 0.1s;
+}
+
+.word-preview-plain {
+  white-space: pre-wrap;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.8;
+  color: #1a1a1a;
 }
 
 /* ============================================================
-   エディタ textarea スクロールバー
+   ファイルリスト行
    ============================================================ */
-textarea::-webkit-scrollbar {
-  width: 6px;
+.file-list-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
 }
 
-textarea::-webkit-scrollbar-track {
-  background: transparent;
+.file-list-row:hover {
+  border-color: #93c5fd;
+  background: #f0f9ff;
 }
 
-textarea::-webkit-scrollbar-thumb {
-  background: #C8D3DF;
+.file-type-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
   border-radius: 3px;
-}
-
-textarea::-webkit-scrollbar-thumb:hover {
-  background: #8A9BB0;
+  letter-spacing: 0.03em;
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
 }
 
 /* ============================================================
-   input[type=range] カスタムスタイル（DocumentEditor用）
+   ファイルプレビューモーダル ヘッダー
+   ============================================================ */
+.file-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.file-preview-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: #374151;
+  padding: 0.3rem 0.65rem;
+  border-radius: 5px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.file-preview-back-btn:hover { background: #f3f4f6; }
+
+.file-preview-edit-btn {
+  font-size: 0.78rem;
+  color: #374151;
+  padding: 0.3rem 0.75rem;
+  border-radius: 5px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.file-preview-edit-btn:hover { background: #f9fafb; }
+
+.file-preview-cancel-btn {
+  font-size: 0.78rem;
+  color: #6b7280;
+  padding: 0.3rem 0.65rem;
+  border-radius: 5px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.file-preview-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: #fff;
+  padding: 0.3rem 0.75rem;
+  border-radius: 5px;
+  background: #2563eb;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.file-preview-save-btn:hover:not(:disabled) { background: #1d4ed8; }
+.file-preview-save-btn:disabled { opacity: 0.6; }
+
+.file-preview-download-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: #374151;
+  padding: 0.3rem 0.75rem;
+  border-radius: 5px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.file-preview-download-btn:hover { background: #f9fafb; }
+
+/* ============================================================
+   textarea スクロールバー
+   ============================================================ */
+textarea::-webkit-scrollbar { width: 6px; }
+textarea::-webkit-scrollbar-track { background: transparent; }
+textarea::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+textarea::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* ============================================================
+   input[type=range]
    ============================================================ */
 input[type=range] {
   -webkit-appearance: none;
   appearance: none;
   height: 4px;
   border-radius: 2px;
-  background: #E4E9EF;
+  background: #e5e7eb;
   outline: none;
   cursor: pointer;
 }
@@ -219,12 +549,8 @@ input[type=range]::-webkit-slider-thumb {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #1D6FA4;
+  background: #2563eb;
   cursor: pointer;
   border: 2px solid white;
-  box-shadow: 0 0 0 1px #1D6FA4;
+  box-shadow: 0 0 0 1px #2563eb;
 }
-.md-preview table { width:100%; border-collapse:collapse; margin:1rem 0; font-size:0.85rem; }
-.md-preview th { background:#F0F4F8; color:#1A3A5C; font-weight:600; padding:0.5rem 0.75rem; border:1px solid #CBD5E0; text-align:left; }
-.md-preview td { padding:0.45rem 0.75rem; border:1px solid #E2E8F0; color:#2D3748; }
-.md-preview tr:nth-child(even) td { background:#F7FAFC; }
