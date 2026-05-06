@@ -76,12 +76,21 @@
 
 .md-preview ul,
 .md-preview ol {
-  margin: 0.5rem 0 0.5rem 1.25rem;
-  padding: 0;
+  padding-left: 1.5rem;
+  margin: 0.65rem 0 1rem;
+}
+
+.md-preview ul {
+  list-style-type: disc;
+}
+
+.md-preview ol {
+  list-style-type: decimal;
 }
 
 .md-preview li {
-  margin-bottom: 0.3rem;
+  margin: 0.35rem 0;
+  line-height: 1.8;
   color: #1a1a1a;
 }
 
@@ -170,31 +179,36 @@
    ・行ホバーハイライト
    ・列幅は内容に応じて自動調整
    ============================================================ */
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  margin: 1rem 0 1.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
 .md-preview table {
   width: 100%;
-  border-collapse: collapse;
-  margin: 1rem 0 1.5rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 0;
   font-size: 0.83rem;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  overflow: hidden;
-  table-layout: auto; /* 列幅を内容に合わせて自動調整 */
+  table-layout: auto;
 }
 
 .md-preview thead {
-  background: #f9fafb;
+  background: #f7f7f5;
 }
 
 .md-preview th {
   color: #374151;
   font-weight: 600;
-  padding: 0.55rem 0.85rem;
+  padding: 0.75rem 0.9rem;
   text-align: left;
   font-size: 0.80rem;
-  border-right: 1px solid #e5e7eb;
-  border-bottom: 1px solid #d1d5db;
-  white-space: nowrap;
-  background: #f9fafb;
+  border-right: 1px solid #ececec;
+  border-bottom: 1px solid #ececec;
+  background: #f7f7f5;
 }
 
 .md-preview th:last-child {
@@ -202,10 +216,10 @@
 }
 
 .md-preview td {
-  padding: 0.5rem 0.85rem;
-  border-right: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
-  color: #1a1a1a;
+  padding: 0.75rem 0.9rem;
+  border-right: 1px solid #ececec;
+  border-bottom: 1px solid #ececec;
+  color: #37352f;
   vertical-align: top;
   line-height: 1.6;
 }
