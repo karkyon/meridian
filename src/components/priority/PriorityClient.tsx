@@ -48,7 +48,7 @@ export default function PriorityClient({
   const [selectedId, setSelectedId] = useState<string | null>(initialProjects[0]?.id ?? null);
   const [axes, setAxes] = useState<Record<string, Axes>>(() =>
     Object.fromEntries(
-      initialProjects.map((p) => {
+      initialProjects.map((p: any) => {
         const latest = p.priorityScores[0];
         return [p.id, latest ? { impact: latest.impact, urgency: latest.urgency, learning: latest.learning, cost: latest.cost, motivation: latest.motivation } : { impact: 5, urgency: 5, learning: 5, cost: 5, motivation: 5 }];
       })
@@ -60,7 +60,7 @@ export default function PriorityClient({
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const dragRef = useRef<{ id: string; idx: number } | null>(null);
 
-  const selectedProject = projects.find((p) => p.id === selectedId);
+  const selectedProject = projects.find((p: any) => p.id === selectedId);
   const currentAxes = selectedId ? (axes[selectedId] ?? { impact: 5, urgency: 5, learning: 5, cost: 5, motivation: 5 }) : null;
   const previewScore = currentAxes ? calcScore(currentAxes) : 0;
 
@@ -78,7 +78,7 @@ export default function PriorityClient({
       body: JSON.stringify({ ...currentAxes }),
     });
     if (res.ok) {
-      setProjects((prev) => prev.map((p) => p.id === selectedId ? { ...p, priorityScore: previewScore } : p));
+      setProjects((prev) => prev.map((p: any) => p.id === selectedId ? { ...p, priorityScore: previewScore } : p));
       setSaved((prev) => ({ ...prev, [selectedId]: true }));
       setTimeout(() => setSaved((prev) => ({ ...prev, [selectedId]: false })), 2000);
     }
@@ -102,7 +102,7 @@ export default function PriorityClient({
     await fetch("/api/priority", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ order: projects.map((p, i) => ({ project_id: p.id, priority_order: i + 1 })) }),
+      body: JSON.stringify({ order: projects.map((p: any, i: number) => ({ project_id: p.id, priority_order: i + 1 })) }),
     });
   }
 
@@ -132,7 +132,7 @@ export default function PriorityClient({
               <span className="text-[10px] text-slate-400">ドラッグで並べ替え</span>
             )}
           </div>
-          {projects.map((p, idx) => (
+          {projects.map((p: any, idx: number) => (
             <div
               key={p.id}
               draggable={isAdmin}
@@ -205,8 +205,8 @@ export default function PriorityClient({
               )}
 
               <div className="space-y-4">
-                {AXES.map((axis) => {
-                  const val = currentAxes[axis.key];
+                {AXES.map((axis: any) => {
+                  const val = currentAxes[axis.key as keyof typeof currentAxes];
                   return (
                     <div key={axis.key}>
                       <div className="flex items-center justify-between mb-1.5">

@@ -33,14 +33,14 @@ export async function GET(req: NextRequest) {
 
       const csv = [
         "日時,ユーザー,アクション,対象種別,対象名,IPアドレス",
-        ...logs.map((l) =>
+        ...logs.map((l: any) =>
           [
             new Date(l.createdAt).toLocaleString("ja-JP"),
             l.userEmail, l.action,
             l.resourceType ?? "",
             l.resourceName ?? "",
             l.ipAddress,
-          ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")
+          ].map((v: any) => `"${String(v).replace(/"/g, '""')}"`).join(",")
         ),
       ].join("\n");
 

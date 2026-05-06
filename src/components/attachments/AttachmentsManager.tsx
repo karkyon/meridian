@@ -79,7 +79,7 @@ export default function AttachmentsManager({
     });
     if (res.ok) {
       setAttachments((prev) =>
-        prev.map((a) => a.id === id ? { ...a, usedForGeneration: !current } : a)
+        prev.map((a: any) => a.id === id ? { ...a, usedForGeneration: !current } : a)
       );
     }
   }
@@ -87,10 +87,10 @@ export default function AttachmentsManager({
   async function deleteAttachment(id: string, name: string) {
     if (!confirm(`「${name}」を削除しますか？`)) return;
     const res = await fetch(`/api/projects/${projectId}/attachments/${id}`, { method: "DELETE" });
-    if (res.ok) setAttachments((prev) => prev.filter((a) => a.id !== id));
+    if (res.ok) setAttachments((prev) => prev.filter((a: any) => a.id !== id));
   }
 
-  const generationCount = attachments.filter((a) => a.usedForGeneration).length;
+  const generationCount = attachments.filter((a: any) => a.usedForGeneration).length;
 
   return (
     <div className="space-y-4">
@@ -168,7 +168,7 @@ export default function AttachmentsManager({
         </div>
       ) : (
         <div className="space-y-2">
-          {attachments.map((att) => {
+          {attachments.map((att: any) => {
             const typeCfg = FILE_TYPE_CONFIG[att.fileType as keyof typeof FILE_TYPE_CONFIG] ?? FILE_TYPE_CONFIG.other;
             return (
               <div key={att.id} className="bg-white border border-slate-100 rounded-xl p-4 flex items-start gap-3">

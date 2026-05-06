@@ -88,7 +88,7 @@ export default function CustomDocsTab({ projectId, role }: { projectId: string; 
       {entries.length === 0 ? (
         <div className="text-center py-8 text-slate-400 text-sm">カスタムドキュメントがありません</div>
       ) : (
-        entries.map((entry) => (
+        entries.map((entry: any) => (
           <div key={entry.key} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-slate-300 transition-colors">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">

@@ -40,16 +40,16 @@ export default async function ProjectDetailPage({ params }: Params) {
     ...project,
     progressCache: Number(project.progressCache),
     docCompleteness: Number(project.docCompleteness),
-    wbsPhases: project.wbsPhases.map((p) => ({
+    wbsPhases: project.wbsPhases.map((p: any) => ({
       ...p,
-      tasks: p.tasks.map((t) => ({
+      tasks: p.tasks.map((t: any) => ({
         ...t,
         estimatedHours: t.estimatedHours ? Number(t.estimatedHours) : null,
       })),
     })),
   };
 
-  const documents = project.documents.map((d) => ({
+  const documents = project.documents.map((d: any) => ({
     docType: d.docType as string,
     completeness: d.completeness,
     version: d.version,
@@ -57,7 +57,6 @@ export default async function ProjectDetailPage({ params }: Params) {
     aiGenerated: d.aiGenerated,
   }));
 
-  // グローバルカスタムdocタイプ一覧取得
   const globalCustomTypes = await prisma.customDocType.findMany({
     where: { isActive: true },
     orderBy: { sortOrder: "asc" },
@@ -66,15 +65,24 @@ export default async function ProjectDetailPage({ params }: Params) {
     where: { projectId: params.id },
     orderBy: { sortOrder: "asc" },
   });
-  const allCustomKeys = [
-    ...globalCustomTypes.map(t => t.key),
-    ...projectCustomTypes.map(t => t.key),
-  ];
-  const customDocMap = new Map(project.customDocuments.map(d => [d.customTypeKey, d]));
+
+  type CustomDocEntry = {
+    completeness: number;
+    version: number;
+    _count: { files: number } | null;
+  };
+  const customDocMap = new Map<string, CustomDocEntry>(
+    project.customDocuments.map((d: any) => [d.customTypeKey, {
+      completeness: d.completeness,
+      version: d.version,
+      _count: d._count,
+    }])
+  );
+
   const customDocTypes = [
-    ...globalCustomTypes.map(t => ({ key: t.key, label: t.label })),
-    ...projectCustomTypes.map(t => ({ key: t.key, label: t.label })),
-  ].map(t => {
+    ...globalCustomTypes.map((t: any) => ({ key: t.key, label: t.label })),
+    ...projectCustomTypes.map((t: any) => ({ key: t.key, label: t.label })),
+  ].map((t: any) => {
     const doc = customDocMap.get(t.key);
     return {
       key: t.key,

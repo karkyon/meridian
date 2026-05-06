@@ -22,12 +22,12 @@ export async function GET(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
 
-    const allTasks = project.wbsPhases.flatMap((p) => p.tasks);
+    const allTasks = project.wbsPhases.flatMap((p: any) => p.tasks);
     const totalTasks = allTasks.length;
-    const doneTasks = allTasks.filter((t) => t.status === "done").length;
-    const blockedTasks = allTasks.filter((t) => t.status === "blocked").length;
+    const doneTasks = allTasks.filter((t: any) => t.status === "done").length;
+    const blockedTasks = allTasks.filter((t: any) => t.status === "blocked").length;
     const overdueTasks = allTasks.filter(
-      (t) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done"
+      (t: any) => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "done"
     ).length;
 
     // タスクがない場合はシンプルに返す
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     // ボトルネックフェーズを特定
     let maxBlockedPhase = { name: "", blocked: 0 };
     for (const phase of project.wbsPhases) {
-      const blocked = phase.tasks.filter((t) => t.status === "blocked").length;
+      const blocked = phase.tasks.filter((t: any) => t.status === "blocked").length;
       if (blocked > maxBlockedPhase.blocked) {
         maxBlockedPhase = { name: phase.name, blocked };
       }
@@ -94,10 +94,10 @@ export async function GET(req: NextRequest, { params }: Params) {
       const apiKey = await getClaudeApiKey();
       const client = new Anthropic({ apiKey });
 
-      const phaseSummary = project.wbsPhases.map((p) => {
+      const phaseSummary = project.wbsPhases.map((p: any) => {
         const total = p.tasks.length;
-        const done = p.tasks.filter((t) => t.status === "done").length;
-        const blocked = p.tasks.filter((t) => t.status === "blocked").length;
+        const done = p.tasks.filter((t: any) => t.status === "done").length;
+        const blocked = p.tasks.filter((t: any) => t.status === "blocked").length;
         return `${p.name}: ${done}/${total}完了, ${blocked}ブロック`;
       }).join("\n");
 

@@ -91,7 +91,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
     if (oldVersions.length > 0) {
       await prisma.documentVersion.deleteMany({
-        where: { id: { in: oldVersions.map((v) => v.id) } },
+        where: { id: { in: oldVersions.map((v: any) => v.id) } },
       });
     }
 
@@ -111,7 +111,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       where: { projectId: params.id },
       select: { completeness: true },
     });
-    const avg = allDocs.reduce((s, d) => s + d.completeness, 0) / allDocs.length;
+    const avg = allDocs.reduce((s: any, d: any) => s + d.completeness, 0) / allDocs.length;
     await prisma.project.update({
       where: { id: params.id },
       data: { docCompleteness: avg },

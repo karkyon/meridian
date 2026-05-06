@@ -80,7 +80,7 @@ export default async function DocumentPage({ params }: Params) {
         initialContent={doc?.content ?? ""}
         initialCompleteness={doc?.completeness ?? 0}
         version={doc?.version ?? 1}
-        initialFiles={(doc?.files ?? []).map((f) => ({
+        initialFiles={(doc?.files ?? []).map((f: any) => ({
           id: f.id,
           originalName: f.originalName,
           fileType: f.fileType,
@@ -88,7 +88,7 @@ export default async function DocumentPage({ params }: Params) {
           isEditable: f.isEditable,
           createdAt: f.createdAt.toISOString(),
         }))}
-        versions={(doc?.versions ?? []).map((v) => ({
+        versions={(doc?.versions ?? []).map((v: any) => ({
           version: v.version,
           createdAt: v.createdAt.toISOString(),
           aiGenerated: v.aiGenerated,

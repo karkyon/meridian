@@ -230,7 +230,7 @@ function TextEditor({ value, onChange, language, viewMode }: TextEditorProps) {
     <div className="flex flex-col h-full">
       {/* ツールバー */}
       <div className="flex items-center gap-1 px-3 py-1.5 border-b border-slate-100 bg-slate-50/80">
-        {toolbar.map((t, i) => (
+        {toolbar.map((t: any, i: number) => (
           <button
             key={i}
             onClick={t.action}
@@ -323,7 +323,7 @@ function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabP
     if (!fileList || fileList.length === 0) return;
     setUploading(true);
     const formData = new FormData();
-    Array.from(fileList).forEach(f => formData.append("file", f));
+    Array.from(fileList).forEach((f: any) => formData.append("file", f));
     try {
       const res = await fetch(uploadUrl, { method: "POST", body: formData });
       const data = await res.json();
@@ -336,7 +336,7 @@ function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabP
   const handleDelete = async (fileId: string) => {
     if (!confirm("このファイルを削除しますか？")) return;
     await fetch(deleteUrl(fileId), { method: "DELETE" });
-    onFilesChange(files.filter(f => f.id !== fileId));
+    onFilesChange(files.filter((f: any) => f.id !== fileId));
   };
 
   const downloadUrl = (fileId: string) => isCustom
@@ -384,7 +384,7 @@ function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabP
           </p>
         ) : (
           <div className="space-y-2">
-            {files.map((file) => (
+            {files.map((file: any) => (
               <div key={file.id} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 hover:border-slate-200 group">
                 <span className="text-lg">{getFileIcon(file.fileType)}</span>
                 <div className="flex-1 min-w-0">
@@ -442,7 +442,7 @@ function HistoryPanel({ versions, onRestore, onClose }: {
         {versions.length === 0 && (
           <p className="text-xs text-slate-400 text-center py-6">履歴なし</p>
         )}
-        {versions.map((v) => (
+        {versions.map((v: any) => (
           <div key={v.id} className="flex items-center justify-between p-3 hover:bg-slate-50 border-b border-slate-50">
             <div>
               <p className="text-xs font-medium text-navy">v{v.version}</p>

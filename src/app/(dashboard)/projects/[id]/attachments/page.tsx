@@ -42,7 +42,7 @@ export default async function AttachmentsPage({ params, searchParams }: Params) 
         <AttachmentsManager
           projectId={params.id}
           docType={docTypeFilter}
-        initialAttachments={attachments.map((a) => ({
+        initialAttachments={attachments.map((a: typeof attachments[0]) => ({
             ...a,
             createdAt: a.createdAt.toISOString(),
           }))}

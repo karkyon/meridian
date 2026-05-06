@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
       const apiKey = await getClaudeApiKey();
       const client = new Anthropic({ apiKey });
 
-      const taskList = tasks.slice(0, 20).map((t, i) =>
+      const taskList = tasks.slice(0, 20).map((t: any, i: number) =>
         `${i + 1}. [${t.phase.project.name}] ${t.title} (優先度:${t.priority}, 期限:${t.dueDate ? new Date(t.dueDate).toLocaleDateString("ja-JP") : "なし"}, PJスコア:${t.phase.project.priorityScore})`
       ).join("\n");
 
@@ -76,7 +76,7 @@ JSON配列で返してください（配列のみ）:
       return NextResponse.json({ focus_tasks: focusTasks });
     } catch {
       // フォールバック: シンプルな優先度順
-      const focusTasks = tasks.slice(0, count).map((t) => ({
+      const focusTasks = tasks.slice(0, count).map((t: any) => ({
         task_id: t.id,
         title: t.title,
         project_name: t.phase.project.name,

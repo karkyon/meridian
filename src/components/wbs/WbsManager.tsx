@@ -36,16 +36,16 @@ export default function WbsManager({
   const [newTaskInputs, setNewTaskInputs] = useState<Record<string, string>>({});
   const [generatingWbs, setGeneratingWbs] = useState(false);
   const [expandedPhases, setExpandedPhases] = useState<Record<string, boolean>>(
-    Object.fromEntries(initialPhases.map((p) => [p.id, true]))
+    Object.fromEntries(initialPhases.map((p: any) => [p.id, true]))
   );
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
   const [importMode, setImportMode] = useState<"replace" | "merge">("replace");
 
-  const allTasks = phases.flatMap((p) => p.tasks);
+  const allTasks = phases.flatMap((p: any) => p.tasks);
   const totalTasks = allTasks.length;
-  const doneTasks = allTasks.filter((t) => t.status === "done").length;
+  const doneTasks = allTasks.filter((t: any) => t.status === "done").length;
   const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
   async function addPhase() {
@@ -73,7 +73,7 @@ export default function WbsManager({
     });
     if (res.ok) {
       const data = await res.json();
-      setPhases((prev) => prev.map((p) =>
+      setPhases((prev) => prev.map((p: any) =>
         p.id === phaseId ? { ...p, tasks: [...p.tasks, data.task] } : p
       ));
       setNewTaskInputs((prev) => ({ ...prev, [phaseId]: "" }));
@@ -84,8 +84,8 @@ export default function WbsManager({
     if (!isAdmin) return;
     const next = currentStatus === "todo" ? "in_progress"
       : currentStatus === "in_progress" ? "done" : "todo";
-    setPhases((prev) => prev.map((p) =>
-      p.id === phaseId ? { ...p, tasks: p.tasks.map((t) => t.id === taskId ? { ...t, status: next } : t) } : p
+    setPhases((prev) => prev.map((p: any) =>
+      p.id === phaseId ? { ...p, tasks: p.tasks.map((t: any) => t.id === taskId ? { ...t, status: next } : t) } : p
     ));
     await fetch(`/api/wbs/tasks/${taskId}`, {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -96,8 +96,8 @@ export default function WbsManager({
   async function deleteTask(taskId: string, phaseId: string) {
     if (!confirm("このタスクを削除しますか？")) return;
     const res = await fetch(`/api/wbs/tasks/${taskId}`, { method: "DELETE" });
-    if (res.ok) setPhases((prev) => prev.map((p) =>
-      p.id === phaseId ? { ...p, tasks: p.tasks.filter((t) => t.id !== taskId) } : p
+    if (res.ok) setPhases((prev) => prev.map((p: any) =>
+      p.id === phaseId ? { ...p, tasks: p.tasks.filter((t: any) => t.id !== taskId) } : p
     ));
   }
 
@@ -154,7 +154,7 @@ export default function WbsManager({
             <h3 className="text-base font-bold text-slate-800 mb-1">WBSインポート</h3>
             <p className="text-xs text-slate-400 mb-3">JSON形式またはMarkdown形式で貼り付け</p>
             <div className="flex gap-2 mb-3">
-              {(["replace", "merge"] as const).map((m) => (
+              {(["replace", "merge"] as const).map((m: any) => (
                 <button key={m} onClick={() => setImportMode(m)}
                   className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
                     importMode === m ? "bg-[#1D6FA4] text-white border-[#1D6FA4]" : "border-slate-200 text-slate-500"
@@ -204,9 +204,9 @@ export default function WbsManager({
       </div>
 
       <div className="space-y-3">
-        {phases.map((phase) => {
+        {phases.map((phase: any) => {
           const total = phase.tasks.length;
-          const done = phase.tasks.filter((t) => t.status === "done").length;
+          const done = phase.tasks.filter((t: any) => t.status === "done").length;
           const phaseProgress = total > 0 ? Math.round((done / total) * 100) : 0;
           const expanded = expandedPhases[phase.id] !== false;
           return (
@@ -227,7 +227,7 @@ export default function WbsManager({
               {expanded && (
                 <>
                   <div className="divide-y divide-slate-50">
-                    {phase.tasks.map((task) => {
+                    {phase.tasks.map((task: any) => {
                       const statusCfg = STATUS_CONFIG[task.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.todo;
                       const priCfg = PRIORITY_CONFIG[task.priority as keyof typeof PRIORITY_CONFIG] ?? PRIORITY_CONFIG.mid;
                       const overdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "done";

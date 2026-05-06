@@ -6,8 +6,12 @@ export type TaskPriority = "high" | "mid" | "low";
 export type DelayRisk = "none" | "low" | "medium" | "high";
 export interface SessionUser { id: string; email: string; name: string; role: UserRole; }
 export const DOC_TYPE_LABELS: Record<DocType, string> = {
-  planning: "企画書", requirements: "要件定義書", external_spec: "外部仕様設計書",
-  db_spec: "DB仕様設計書", api_spec: "API詳細設計書",
+  planning: "企画書",
+  requirements: "要件定義書",
+  external_spec: "外部仕様設計書",
+  db_spec: "DB仕様設計書",
+  api_spec: "API詳細設計書",
+  wireframe: "ワイヤーフレーム",
 };
 export interface PriorityAxes { impact: number; urgency: number; learning: number; cost: number; motivation: number; }
 export function calcPriorityScore(a: PriorityAxes): number {

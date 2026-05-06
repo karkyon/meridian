@@ -139,7 +139,7 @@ export default function ProjectDetailClient({
         {[
           { id: "docs", label: "ドキュメント", icon: <FileText size={14} /> },
           { id: "attachments", label: "添付資料", icon: <Paperclip size={14} />, count: attachmentCount },
-        ].map(tab => (
+        ].map((tab: any) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as "docs" | "attachments")}

@@ -2,6 +2,12 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import TopBar from "@/components/layout/TopBar";
 import ProjectCard from "@/components/projects/ProjectCard";
+
+type ProjectItem = {
+  id: string; name: string; status: string; category: string | null;
+  techStack: unknown; priorityScore: number; progressCache: unknown;
+  docCompleteness: unknown; delayRisk: string | null; updatedAt: Date;
+};
 import KpiCard from "@/components/projects/KpiCard";
 import FocusPanel from "@/components/intelligence/FocusPanel";
 import Link from "next/link";
@@ -24,9 +30,9 @@ export default async function DashboardPage() {
     prisma.weeklySummary.findFirst({ orderBy: { weekStart: "desc" } }),
   ]);
 
-  const activeCount = projects.filter((p) => p.status === "active").length;
+  const activeCount = projects.filter((p: ProjectItem) => p.status === "active").length;
   const docRate = projects.length > 0
-    ? Math.round(projects.reduce((s, p) => s + Number(p.docCompleteness), 0) / projects.length)
+    ? Math.round(projects.reduce((s: number, p: ProjectItem) => s + Number(p.docCompleteness), 0) / projects.length)
     : 0;
 
   const weekStart = new Date();
@@ -122,7 +128,7 @@ export default async function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {projects.map((project) => (
+              {(projects as ProjectItem[]).map((project: any) => (
                 <ProjectCard key={project.id} project={project} />
               ))}
             </div>

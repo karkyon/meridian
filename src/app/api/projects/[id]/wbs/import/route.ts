@@ -137,7 +137,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const allTasks = await prisma.wbsTask.findMany({
       where: { phase: { projectId: params.id } },
     });
-    const done = allTasks.filter(t => t.status === "done").length;
+    const done = allTasks.filter((t: any) => t.status === "done").length;
     const progress = allTasks.length > 0 ? (done / allTasks.length) * 100 : 0;
     await prisma.project.update({
       where: { id: params.id },

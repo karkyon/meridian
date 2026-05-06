@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import type { AuditAction } from "@prisma/client";
+type AuditAction = 
+  "LOGIN_SUCCESS" | "LOGIN_FAILED" | "LOGIN_LOCKED" | "LOGOUT" |
+  "PROJECT_CREATE" | "PROJECT_UPDATE" | "PROJECT_DELETE" |
+  "DOCUMENT_SAVE" | "DOCUMENT_AI_GENERATE" |
+  "WBS_TASK_CREATE" | "WBS_TASK_UPDATE" | "WBS_TASK_DELETE" |
+  "PRIORITY_UPDATE" | "USER_CREATE" | "USER_DELETE" |
+  "USER_ROLE_CHANGE" | "USER_UNLOCK" | "SESSION_REVOKE" |
+  "SETTINGS_UPDATE" | "API_KEY_UPDATE";
 import type { NextRequest } from "next/server";
 export interface AuditLogParams {
   userId: string; userEmail: string; action: AuditAction;

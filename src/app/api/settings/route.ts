@@ -60,7 +60,7 @@ export async function PUT(req: NextRequest) {
 
     const settings = await prisma.settings.findFirst();
     if (!settings) {
-      await prisma.settings.create({ data: updateData as Parameters<typeof prisma.settings.create>[0]["data"] });
+      await prisma.settings.create({ data: updateData as any });
     } else {
       await prisma.settings.update({ where: { id: settings.id }, data: updateData });
     }
