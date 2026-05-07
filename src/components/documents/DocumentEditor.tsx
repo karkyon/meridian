@@ -776,20 +776,8 @@ function FilePreviewScreen({ file, projectId, docKey, isCustom, allFiles, onClos
             viewMode={viewMode}
           />
         ) : isDocx ? (
-          // WORDはバイナリプレビュー不可 → extractedTextを表示
-          <div className="flex flex-col h-full bg-white">
-            <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border-b border-slate-200">
-              <span className="text-xs text-slate-500">📄 Word文書の内容（テキスト抽出）</span>
-              <a href={baseUrl} download={file.originalName} className="ml-auto text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1">
-                <Download size={12} /> DOCXをダウンロード
-              </a>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              <pre className="whitespace-pre-wrap font-sans text-sm text-slate-700 leading-relaxed">
-                {previewContent || "テキストを抽出できませんでした。ダウンロードして確認してください。"}
-              </pre>
-            </div>
-          </div>
+          // mammoth変換済みHTMLをWordViewerで表示
+          <WordViewer content={previewContent ?? ""} fileName={file.originalName} />
         ) : isPdf ? (
           // PDFはiframeで表示（CSP問題のためobjectタグを使用）
           <div className="flex flex-col h-full bg-white">
@@ -1066,6 +1054,22 @@ export function DocumentEditor(props: Props) {
   const [savedNewDocName, setSavedNewDocName] = useState<string | null>(null);
   const [showNewDocSaveDialog, setShowNewDocSaveDialog] = useState(false);
   const [content, setContent] = useState(props.initialContent || "");
+  // 新規作成時の未保存フラグ（1文字でも入力したらtrue）
+  const [isNewDocDirty, setIsNewDocDirty] = useState(false);
+  // 未保存離脱確認ダイアログ
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+
+  // ページ離脱時の確認（新規作成中かつ未保存のみ）
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isNewDoc && isNewDocDirty) {
+        e.preventDefault();
+        e.returnValue = "編集中のドキュメントが保存されていません。ページを離れますか？";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isNewDoc, isNewDocDirty]);
 
   const [completeness, setCompleteness] = useState(props.initialCompleteness || 0);
   const [files, setFiles] = useState<DocFile[]>(initialFiles);
@@ -1137,8 +1141,8 @@ export function DocumentEditor(props: Props) {
 
   return (
     <div className="flex flex-col h-full bg-slate-50">
-      {/* ─── ヘッダー（エディタタブのみ表示）─── */}
-      {activeTab === "editor" && (
+      {/* ─── ヘッダー（新規ドキュメント作成モード時のみ表示）─── */}
+      {activeTab === "editor" && isNewDoc && (
         <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
           <div className="flex-1 min-w-0">
             {isNewDoc ? (
@@ -1182,20 +1186,24 @@ export function DocumentEditor(props: Props) {
 
       {/* ─── タブ ─── */}
       <div className="bg-white border-b border-slate-200 px-4 flex items-center gap-0">
-        {/* エディタタブ：常時表示 */}
+        {/* エディタタブ：新規作成モード時のみ表示 */}
+        {activeTab === "editor" && (
+          <button
+            onClick={() => setActiveTab("editor")}
+            className="flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 border-blue-600 text-blue-600 font-medium"
+          >
+            <FileText size={14} />
+            ✏️ 新規ドキュメント
+          </button>
+        )}
         <button
-          onClick={() => setActiveTab("editor")}
-          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors ${
-            activeTab === "editor"
-              ? "border-blue-600 text-blue-600 font-medium"
-              : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <FileText size={14} />
-          ✏️ エディタ
-        </button>
-        <button
-          onClick={() => setActiveTab("files")}
+          onClick={() => {
+            if (isNewDoc && isNewDocDirty) {
+              setShowUnsavedDialog(true);
+            } else {
+              setActiveTab("files");
+            }
+          }}
           className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors ${
             activeTab === "files"
               ? "border-blue-600 text-blue-600 font-medium"
@@ -1286,12 +1294,12 @@ export function DocumentEditor(props: Props) {
         )}
       </div>
 
-      {/* ─── コンテンツ ─── */}
+{/* ─── コンテンツ ─── */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        {activeTab === "editor" ? (
+        {activeTab === "editor" && isNewDoc ? (
           <TextEditor
             value={content}
-            onChange={setContent}
+            onChange={(v) => { setContent(v); if (v.trim().length > 0) setIsNewDocDirty(true); }}
             language={editorLanguage}
             viewMode={viewMode}
           />
@@ -1305,7 +1313,51 @@ export function DocumentEditor(props: Props) {
           />
         )}
       </div>
-{/* 新規ドキュメント保存ダイアログ */}
+{/* 未保存離脱確認ダイアログ */}
+      {showUnsavedDialog && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xl p-6 w-[400px]">
+            <h3 className="text-sm font-semibold text-navy mb-2 flex items-center gap-2">
+              ⚠️ 未保存のドキュメントがあります
+            </h3>
+            <p className="text-sm text-slate-600 mb-5">
+              編集中のドキュメントは保存されていません。<br />
+              このまま離れると内容が失われます。
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowUnsavedDialog(false)}
+                className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                編集を続ける
+              </button>
+              <button
+                onClick={() => {
+                  setShowUnsavedDialog(false);
+                  setShowNewDocSaveDialog(true);
+                }}
+                className="px-3 py-1.5 text-sm rounded-lg border border-blue-300 text-blue-600 hover:bg-blue-50"
+              >
+                保存する
+              </button>
+              <button
+                onClick={() => {
+                  setShowUnsavedDialog(false);
+                  setIsNewDoc(false);
+                  setIsNewDocDirty(false);
+                  setContent("");
+                  setActiveTab("files");
+                }}
+                className="px-3 py-1.5 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600"
+              >
+                破棄して離れる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 新規ドキュメント保存ダイアログ */}
       {showNewDocSaveDialog && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-xl border border-slate-200 shadow-xl p-6 w-[420px]">
@@ -1355,11 +1407,12 @@ export function DocumentEditor(props: Props) {
                         createdAt: newFile.createdAt,
                       }]);
                       setIsNewDoc(false);
+                      setIsNewDocDirty(false);
                       const savedName = newDocFileName.trim().endsWith(".md") ? newDocFileName.trim() : newDocFileName.trim() + ".md";
                       setSavedNewDocName(savedName);
                       setSaved(true);
                       setTimeout(() => setSaved(false), 2500);
-                      
+                      setShowNewDocSaveDialog(false);
                       // ファイルタブに戻らずエディタタブのままヘッダーを更新
                       // setActiveTab("files") を削除
                     }

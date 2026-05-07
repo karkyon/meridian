@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth, withAdmin } from "@/lib/api-helpers";
 import * as fs from "fs/promises";
+import mammoth from "mammoth";
 
 type Params = { params: { id: string; key: string; fileId: string } };
 
@@ -20,15 +21,34 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     // プレビュー用テキスト取得
     if (action === "preview") {
-      // WORD/PDFはバイナリなので extractedText を返す
       const ext = (file.originalName ?? "").split(".").pop()?.toLowerCase() ?? "";
-      const isBinary = ["docx", "doc", "pdf"].includes(ext) || ["word", "pdf"].includes(file.fileType ?? "");
-      if (isBinary) {
-        const text = file.extractedText ?? "このファイルのテキストプレビューは利用できません。ダウンロードして確認してください。";
+      const isWord = ["docx", "doc"].includes(ext) || file.fileType === "word";
+      const isPdf = ext === "pdf" || file.fileType === "pdf";
+
+      // WORDはmammothでHTML変換して返す
+      if (isWord) {
+        try {
+          const buf = await fs.readFile(file.storagePath);
+          const result = await mammoth.convertToHtml({ buffer: buf });
+          return new NextResponse(result.value, {
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          });
+        } catch {
+          const fallback = file.extractedText ?? "Word文書のプレビューに失敗しました。ダウンロードして確認してください。";
+          return new NextResponse(fallback, {
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
+        }
+      }
+
+      // PDFはextractedTextを返す
+      if (isPdf) {
+        const text = file.extractedText ?? "PDFのテキストプレビューは利用できません。ダウンロードして確認してください。";
         return new NextResponse(text, {
           headers: { "Content-Type": "text/plain; charset=utf-8" },
         });
       }
+
       try {
         const buf = await fs.readFile(file.storagePath);
         const text = buf.toString("utf-8");
