@@ -78,13 +78,34 @@ function getFileLabel(fileType: string) {
 }
 
 // ============================================================
-// Markdown → HTML 変換
+// Markdown → HTML 変換（完全実装・state管理方式）
 // ============================================================
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function sanitizeHtml(html: string): string {
+  return html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
+}
+
+function inlineMd(s: string): string {
+  let t = escapeHtml(s);
+  t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
+  t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  t = t.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
+  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>');
+  return t;
+}
+
 function mdToHtml(md: string): string {
   const lines = md.split("\n");
   const out: string[] = [];
 
-  // state
   let inFence = false;
   let fenceLang = "";
   let fenceLines: string[] = [];
@@ -92,12 +113,13 @@ function mdToHtml(md: string): string {
   let inOl = false;
   let inUl = false;
 
+  // セパレーター行判定（|---|, |:---|, |---:|, |:---:| スペース混在全対応）
   const isSep = (line: string) =>
     /^\|( *:?-+:? *\|)+ *$/.test(line.trim());
 
-  // テーブル行判定：最低3セル（| で2分割以上）必要
+  // テーブル行判定：| で囲まれており最低1セル
   const isTableRow = (t: string) =>
-    t.startsWith("|") && t.endsWith("|") && t.split("|").length >= 2;
+    t.startsWith("|") && t.endsWith("|") && t.split("|").length >= 3;
 
   const closeLists = () => {
     if (inOl) { out.push("</ol>"); inOl = false; }
@@ -142,7 +164,7 @@ function mdToHtml(md: string): string {
       if (!inTable) {
         const next = (lines[i + 1] ?? "").trim();
         if (isSep(next)) {
-          // thead あり：1行目はヘッダー、セパレーターをスキップ
+          // thead あり
           out.push('<div class="table-wrapper"><table>');
           out.push(`<thead><tr>${cells.map((c) => `<th>${inlineMd(c)}</th>`).join("")}</tr></thead>`);
           out.push("<tbody>");
@@ -150,18 +172,27 @@ function mdToHtml(md: string): string {
           inTable = true;
           continue;
         } else {
-          // thead なし：1行目もtbodyへ確実に出力
+          // thead なし：1行目もtbodyへ出力
           out.push('<div class="table-wrapper"><table><tbody>');
           inTable = true;
-          // continueしない → このままtr出力へ落ちる
+          // continueしない → そのまま下のtr出力へ落ちる
         }
       }
       out.push(`<tr>${cells.map((c) => `<td>${inlineMd(c)}</td>`).join("")}</tr>`);
       continue;
     }
 
+    // テーブル内の空行は無視（行間空行でテーブルが分断されるのを防ぐ）
+    if (trimmed === "") {
+      if (!inTable) { closeLists(); out.push(""); }
+      continue;
+    }
+
     // テーブル以外の行でテーブルを閉じる
     closeTable();
+
+    // ── 空行 → リストを閉じる ──
+    // if (trimmed === "") { closeLists(); out.push(""); continue; }
 
     // ── 水平線 ──
     if (/^-{3,}$/.test(trimmed)) { closeLists(); out.push("<hr>"); continue; }
@@ -224,35 +255,8 @@ function mdToHtml(md: string): string {
   return out.join("\n");
 }
 
-// HTML特殊文字エスケープ
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-// XSS対策：scriptタグ除去
-function sanitizeHtml(html: string): string {
-  return html.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, "");
-}
-
-// インライン要素変換（escapeHtml後に処理）
-function inlineMd(s: string): string {
-  let t = escapeHtml(s);
-  t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
-  // bold を先に処理してから italic（順序が重要）
-  t = t.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  // bold処理済みなので ** は消えている → * 単独のみ残る
-  t = t.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
-  t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>');
-  return t;
-}
-
 // ============================================================
-// HTMLプレビュー（iframe + Tailwind）
+// HTMLプレビュー（iframe）
 // ============================================================
 function HtmlPreview({ code, fullscreen }: { code: string; fullscreen?: boolean }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -262,24 +266,19 @@ function HtmlPreview({ code, fullscreen }: { code: string; fullscreen?: boolean 
     if (!iframe) return;
     const doc = iframe.contentDocument || iframe.contentWindow?.document;
     if (!doc) return;
-
-    // コードがすでに完全なHTMLドキュメントかチェック
     const isFullDoc = /<!DOCTYPE|<html/i.test(code);
     const content = isFullDoc ? code : `<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://cdn.tailwindcss.com"></script>
-<style>
-  body { font-family: sans-serif; }
-</style>
+<script src="https://cdn.tailwindcss.com"><\/script>
+<style>body { font-family: sans-serif; }</style>
 </head>
 <body>
 ${code}
 </body>
 </html>`;
-
     doc.open();
     doc.write(content);
     doc.close();
@@ -296,7 +295,7 @@ ${code}
 }
 
 // ============================================================
-// Markdownプレビュー（スクショ準拠：A4ページ風カードデザイン）
+// Markdownプレビュー
 // ============================================================
 function MarkdownPreview({ content }: { content: string }) {
   const html = sanitizeHtml(mdToHtml(content));
@@ -320,12 +319,14 @@ interface TextEditorProps {
   onChange: (v: string) => void;
   language: "markdown" | "html";
   viewMode: "edit" | "preview" | "split";
+  onViewModeChange?: (mode: "edit" | "preview" | "split") => void;
+  onSave?: () => void;
+  showSaveButton?: boolean;
 }
 
-function TextEditor({ value, onChange, language, viewMode }: TextEditorProps) {
+function TextEditor({ value, onChange, language, viewMode, onViewModeChange, onSave, showSaveButton }: TextEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // ツールバーアクション
   const insertWrap = (before: string, after = before) => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -370,10 +371,16 @@ function TextEditor({ value, onChange, language, viewMode }: TextEditorProps) {
   const showEditor = viewMode === "edit" || viewMode === "split";
   const showPreview = viewMode === "preview" || viewMode === "split";
 
+  const viewModeButtons: Array<{ mode: "edit" | "preview" | "split"; icon: React.ReactNode; label: string }> = [
+    { mode: "edit", icon: <AlignLeft size={13} />, label: "編集" },
+    { mode: "split", icon: <Columns size={13} />, label: "分割" },
+    { mode: "preview", icon: <Eye size={13} />, label: "プレビュー" },
+  ];
+
   return (
     <div className="flex flex-col h-full">
       {/* ツールバー */}
-      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-slate-100 bg-slate-50/80">
+      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-slate-100 bg-slate-50/80 flex-wrap">
         {toolbar.map((t: any, i: number) => (
           <button
             key={i}
@@ -384,10 +391,36 @@ function TextEditor({ value, onChange, language, viewMode }: TextEditorProps) {
             {t.icon}
           </button>
         ))}
+        <div className="h-4 w-px bg-slate-200 mx-1" />
+        {/* ビューモード切替 */}
+        {onViewModeChange && viewModeButtons.map(({ mode, icon, label }) => (
+          <button
+            key={mode}
+            onClick={() => onViewModeChange(mode)}
+            title={label}
+            className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+              viewMode === mode
+                ? "bg-navy text-white"
+                : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            {icon}
+            <span className="hidden sm:inline">{label}</span>
+          </button>
+        ))}
         <div className="flex-1" />
         <span className="text-xs text-slate-400 font-mono">
           {language === "markdown" ? "Markdown" : "HTML"}
         </span>
+        {showSaveButton && onSave && (
+          <button
+            onClick={onSave}
+            className="flex items-center gap-1 px-3 py-1 rounded text-xs bg-blue-600 text-white hover:bg-blue-700 transition-colors ml-2"
+          >
+            <Save size={12} />
+            保存
+          </button>
+        )}
       </div>
 
       {/* エディタ/プレビュー */}
@@ -403,7 +436,7 @@ function TextEditor({ value, onChange, language, viewMode }: TextEditorProps) {
           />
         )}
         {showPreview && (
-          <div className={`flex-1 overflow-auto ${viewMode === "split" ? "" : ""}`}>
+          <div className={`flex-1 overflow-auto`}>
             {language === "markdown" ? (
               <MarkdownPreview content={value} />
             ) : (
@@ -417,25 +450,20 @@ function TextEditor({ value, onChange, language, viewMode }: TextEditorProps) {
 }
 
 // ============================================================
-// WORDビューア（スクショ2準拠：A4ページ風デザイン）
+// WORDビューア
 // ============================================================
 function WordViewer({ content, fileName }: { content: string; fileName?: string }) {
   const isHtml = /<[a-z]/i.test(content);
   return (
     <div className="word-preview-wrap h-full">
-      {/* トップバー */}
       <div className="word-preview-topbar">
         <span className="word-preview-topbar-title">{fileName ?? "Word Document"}</span>
         <span className="word-preview-topbar-badge">DOCX</span>
       </div>
-      {/* A4ページ */}
       <div className="word-preview-page-wrap">
         <div className="word-preview-page">
           {isHtml ? (
-            <div
-              className="word-preview"
-              dangerouslySetInnerHTML={{ __html: content }}
-            />
+            <div className="word-preview" dangerouslySetInnerHTML={{ __html: content }} />
           ) : (
             <pre className="word-preview-plain">{content}</pre>
           )}
@@ -446,23 +474,90 @@ function WordViewer({ content, fileName }: { content: string; fileName?: string 
 }
 
 // ============================================================
-// ファイルプレビューモーダル（NEW：ファイル名クリックで開く）
+// 保存ダイアログ
+// ============================================================
+interface SaveDialogProps {
+  currentName: string;
+  hasConflict: boolean;
+  onSave: (fileName: string, overwrite: boolean) => void;
+  onCancel: () => void;
+}
+
+function SaveDialog({ currentName, hasConflict, onSave, onCancel }: SaveDialogProps) {
+  const [fileName, setFileName] = useState(currentName);
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-xl p-6 w-[420px]">
+        <h3 className="text-sm font-semibold text-navy mb-1 flex items-center gap-2">
+          <Save size={15} /> ファイルを保存
+        </h3>
+        <p className="text-xs text-slate-500 mb-4">保存先のファイル名を確認・変更してください。</p>
+        <input
+          type="text"
+          value={fileName}
+          onChange={(e) => setFileName(e.target.value)}
+          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-2 outline-none focus:border-azure"
+        />
+        {hasConflict && (
+          <p className="text-xs text-amber-600 mb-4 flex items-center gap-1">
+            ⚠ 同名ファイルが存在します。上書き保存しますか？
+          </p>
+        )}
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={onCancel} className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">
+            キャンセル
+          </button>
+          {hasConflict && fileName === currentName ? (
+            <>
+              <button
+                onClick={() => onSave(fileName + "_copy", false)}
+                className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-navy hover:bg-slate-50"
+              >
+                別名で保存
+              </button>
+              <button
+                onClick={() => onSave(fileName, true)}
+                className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              >
+                上書き保存
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => onSave(fileName, fileName === currentName)}
+              className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+            >
+              保存する
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// ファイルプレビュー・編集画面（フルスクリーン）
 // ============================================================
 interface FilePreviewProps {
   file: DocFile;
   projectId: string;
   docKey: string;
   isCustom: boolean;
+  allFiles: DocFile[];
   onClose: () => void;
+  onFilesChange: (files: DocFile[]) => void;
 }
 
-function FilePreviewModal({ file, projectId, docKey, isCustom, onClose }: FilePreviewProps) {
+function FilePreviewScreen({ file, projectId, docKey, isCustom, allFiles, onClose, onFilesChange }: FilePreviewProps) {
   const [previewContent, setPreviewContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [editContent, setEditContent] = useState<string>("");
-  const [isEditing, setIsEditing] = useState(false);
+  const [viewMode, setViewMode] = useState<"preview" | "edit" | "split">("preview");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   const baseUrl = isCustom
     ? `/api/projects/${projectId}/custom-docs/${docKey}/files/${file.id}`
@@ -489,18 +584,39 @@ function FilePreviewModal({ file, projectId, docKey, isCustom, onClose }: FilePr
     })();
   }, [fetchUrl]);
 
-  const handleSave = async () => {
+  const handleEditChange = (val: string) => {
+    setEditContent(val);
+    setIsDirty(true);
+  };
+
+  // 保存ダイアログ表示
+  const handleSaveClick = () => {
+    setShowSaveDialog(true);
+  };
+
+  // 実際の保存処理
+  const handleSaveConfirm = async (fileName: string, overwrite: boolean) => {
     setSaving(true);
+    setShowSaveDialog(false);
     try {
-      await fetch(baseUrl, {
+      const res = await fetch(baseUrl, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: editContent }),
+        body: JSON.stringify({ content: editContent, fileName, overwrite }),
       });
-      setPreviewContent(editContent);
-      setSaved(true);
-      setIsEditing(false);
-      setTimeout(() => setSaved(false), 2000);
+      if (res.ok) {
+        const data = await res.json();
+        setPreviewContent(editContent);
+        setSaved(true);
+        setIsDirty(false);
+        setViewMode("preview");
+        // ファイル名が変わった場合はファイルリストを更新
+        if (data.file) {
+          const updated = allFiles.map(f => f.id === file.id ? { ...f, originalName: data.file.originalName } : f);
+          onFilesChange(updated);
+        }
+        setTimeout(() => setSaved(false), 2500);
+      }
     } finally {
       setSaving(false);
     }
@@ -511,10 +627,11 @@ function FilePreviewModal({ file, projectId, docKey, isCustom, onClose }: FilePr
   const isDocx = ft === "docx" || ft === "doc";
   const isHtmlFile = ft === "html";
   const canEdit = isMd || isHtmlFile;
+  const editorLang: "markdown" | "html" = isMd ? "markdown" : "html";
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#F0F4F8]">
-      {/* モーダルヘッダー */}
+    <div className="flex flex-col h-full bg-slate-50">
+      {/* ヘッダー */}
       <div className="file-preview-header">
         <button onClick={onClose} className="file-preview-back-btn">
           <ChevronLeft size={16} />
@@ -524,38 +641,53 @@ function FilePreviewModal({ file, projectId, docKey, isCustom, onClose }: FilePr
           <span className="text-base">{getFileIcon(file.fileType)}</span>
           <span className="text-sm font-semibold text-[#1A3A5C] truncate">{file.originalName}</span>
           <span className="file-type-badge">{getFileLabel(file.fileType)}</span>
+          {isDirty && <span className="text-xs text-amber-500 font-medium">● 未保存</span>}
         </div>
         <div className="flex items-center gap-2">
-          {canEdit && !isEditing && (
-            <button onClick={() => setIsEditing(true)} className="file-preview-edit-btn">
-              ✏️ 編集
-            </button>
-          )}
-          {isEditing && (
+          {canEdit && !loading && previewContent !== null && (
             <>
-              <button
-                onClick={() => { setIsEditing(false); setEditContent(previewContent ?? ""); }}
-                className="file-preview-cancel-btn"
-              >
-                キャンセル
-              </button>
-              <button onClick={handleSave} disabled={saving} className="file-preview-save-btn">
-                {saved ? <><Check size={13} /> 保存済み</> : saving ? "保存中..." : <><Save size={13} /> 保存</>}
-              </button>
+              <div className="flex items-center gap-1 mr-1">
+                <button className="text-xs px-2 py-1 rounded bg-slate-200 text-navy font-medium">
+                  {editorLang === "markdown" ? "MD" : "HTML"}
+                </button>
+              </div>
+              <div className="flex items-center gap-0.5">
+                {(["edit", "split", "preview"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    title={mode === "edit" ? "編集" : mode === "split" ? "分割" : "プレビュー"}
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                      viewMode === mode
+                        ? "bg-navy text-white"
+                        : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    {mode === "edit" && <><AlignLeft size={12} /> 編集</>}
+                    {mode === "split" && <><Columns size={12} /> 分割</>}
+                    {mode === "preview" && <><Eye size={12} /> プレビュー</>}
+                  </button>
+                ))}
+              </div>
             </>
+          )}
+          {canEdit && (viewMode === "edit" || viewMode === "split") && (
+            <button onClick={handleSaveClick} disabled={saving} className="file-preview-save-btn">
+              {saved ? <><Check size={13} /> 保存済み</> : saving ? "保存中..." : <><Save size={13} /> 保存</>}
+            </button>
           )}
           <a href={baseUrl} download={file.originalName} className="file-preview-download-btn">
             <Download size={14} />
-            ダウンロード
+            DL
           </a>
         </div>
       </div>
 
-      {/* プレビュー本体 */}
+      {/* コンテンツ */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <RefreshCw size={20} className="animate-spin text-azure" />
+            <RefreshCw size={20} className="animate-spin text-blue-500" />
             <span className="ml-2 text-sm text-slate-400">読み込み中...</span>
           </div>
         ) : previewContent === null ? (
@@ -566,19 +698,14 @@ function FilePreviewModal({ file, projectId, docKey, isCustom, onClose }: FilePr
               <Download size={14} /> ダウンロード
             </a>
           </div>
-        ) : isEditing ? (
-          <div className="h-full flex flex-col">
-            <div className="flex-1 min-h-0">
-              <TextEditor
-                value={editContent}
-                onChange={setEditContent}
-                language={isMd ? "markdown" : "html"}
-                viewMode="split"
-              />
-            </div>
-          </div>
-        ) : isMd ? (
-          <MarkdownPreview content={previewContent} />
+        ) : canEdit ? (
+          <TextEditor
+            value={editContent}
+            onChange={handleEditChange}
+            language={editorLang}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
         ) : isDocx ? (
           <WordViewer content={previewContent} fileName={file.originalName} />
         ) : isHtmlFile ? (
@@ -591,6 +718,16 @@ function FilePreviewModal({ file, projectId, docKey, isCustom, onClose }: FilePr
           </div>
         )}
       </div>
+
+      {/* 保存ダイアログ */}
+      {showSaveDialog && (
+        <SaveDialog
+          currentName={file.originalName}
+          hasConflict={allFiles.some(f => f.id !== file.id && f.originalName === file.originalName)}
+          onSave={handleSaveConfirm}
+          onCancel={() => setShowSaveDialog(false)}
+        />
+      )}
     </div>
   );
 }
@@ -600,7 +737,7 @@ function FilePreviewModal({ file, projectId, docKey, isCustom, onClose }: FilePr
 // ============================================================
 interface FileTabProps {
   projectId: string;
-  docKey: string;       // docType or docKey
+  docKey: string;
   isCustom: boolean;
   files: DocFile[];
   onFilesChange: (files: DocFile[]) => void;
@@ -609,7 +746,7 @@ interface FileTabProps {
 function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabProps) {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [previewFile, setPreviewFile] = useState<DocFile | null>(null);
+  const [activeFile, setActiveFile] = useState<DocFile | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const uploadUrl = isCustom
@@ -645,94 +782,98 @@ function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabP
     ? `/api/projects/${projectId}/custom-docs/${docKey}/files/${fileId}`
     : `/api/projects/${projectId}/documents/${docKey}/files/${fileId}`;
 
+  // ファイルプレビュー画面表示中
   return (
-    <>
-      {/* ファイルプレビューモーダル */}
-      {previewFile && (
-        <FilePreviewModal
-          file={previewFile}
-          projectId={projectId}
-          docKey={docKey}
-          isCustom={isCustom}
-          onClose={() => setPreviewFile(null)}
-        />
-      )}
-
-      <div className="h-full flex flex-col bg-white">
-        {/* ドロップゾーン */}
-        <div
-          className={`m-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
-            dragOver ? "border-azure bg-azure-light/50" : "border-slate-200 hover:border-slate-300"
-          }`}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files); }}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Upload size={20} className="mx-auto mb-2 text-slate-400" />
-          <p className="text-sm text-slate-500">
-            クリックまたはドラッグでアップロード
-          </p>
-          <p className="text-xs text-slate-400 mt-1">.md .docx .pdf .html — 最大5MB</p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept=".md,.markdown,.docx,.doc,.pdf,.html,.htm"
-            multiple
-            onChange={(e) => handleUpload(e.target.files)}
+    <div className="h-full flex flex-col bg-white relative">
+      {/* ファイルプレビュー画面：ファイルリストの上にオーバーレイ */}
+      {activeFile && (
+        <div className="absolute inset-0 z-10 bg-slate-50 flex flex-col">
+          <FilePreviewScreen
+            file={activeFile}
+            projectId={projectId}
+            docKey={docKey}
+            isCustom={isCustom}
+            allFiles={files}
+            onClose={() => setActiveFile(null)}
+            onFilesChange={onFilesChange}
           />
         </div>
+      )}
+      {/* ドロップゾーン */}
+      <div
+        className={`m-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer ${
+          dragOver ? "border-blue-400 bg-blue-50" : "border-slate-200 hover:border-slate-300"
+        }`}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); handleUpload(e.dataTransfer.files); }}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <Upload size={20} className="mx-auto mb-2 text-slate-400" />
+        <p className="text-sm text-slate-500">クリックまたはドラッグでアップロード</p>
+        <p className="text-xs text-slate-400 mt-1">.md .docx .pdf .html — 最大5MB</p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".md,.markdown,.docx,.doc,.pdf,.html,.htm"
+          multiple
+          onChange={(e) => handleUpload(e.target.files)}
+        />
+      </div>
 
-        {uploading && (
-          <div className="mx-4 mb-3 flex items-center gap-2 text-sm text-azure">
-            <RefreshCw size={14} className="animate-spin" /> アップロード中...
+      {uploading && (
+        <div className="mx-4 mb-3 flex items-center gap-2 text-sm text-blue-600">
+          <RefreshCw size={14} className="animate-spin" /> アップロード中...
+        </div>
+      )}
+
+      {/* ファイルリスト */}
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        {files.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-8">ファイルはまだありません</p>
+        ) : (
+          <div className="space-y-2">
+            {files.map((file: any) => (
+              <div
+                key={file.id}
+                className="file-list-row group cursor-pointer"
+                onClick={() => setActiveFile(file)}
+              >
+                <span className="text-xl flex-shrink-0">{getFileIcon(file.fileType)}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-navy truncate">{file.originalName}</p>
+                  <p className="text-xs text-slate-400">
+                    {formatBytes(file.fileSize)} · {new Date(file.createdAt).toLocaleDateString("ja-JP")}
+                  </p>
+                </div>
+                <span className="file-type-badge flex-shrink-0">{getFileLabel(file.fileType)}</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setActiveFile(file); }}
+                  className="px-2 py-1 text-xs rounded border border-slate-200 text-slate-600 hover:bg-slate-50 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all"
+                >
+                  開く
+                </button>
+                <a
+                  href={downloadUrl(file.id)}
+                  download={file.originalName}
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-navy opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                >
+                  <Download size={14} />
+                </a>
+                <button
+                  onClick={(e) => handleDelete(file.id, e)}
+                  className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
           </div>
         )}
-
-        {/* ファイルリスト */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4">
-          {files.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-8">
-              ファイルはまだありません
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {files.map((file: any) => (
-                <div
-                  key={file.id}
-                  className="file-list-row group"
-                  onClick={() => setPreviewFile(file)}
-                >
-                  <span className="text-xl flex-shrink-0">{getFileIcon(file.fileType)}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-navy truncate">{file.originalName}</p>
-                    <p className="text-xs text-slate-400">
-                      {formatBytes(file.fileSize)} · {new Date(file.createdAt).toLocaleDateString("ja-JP")}
-                    </p>
-                  </div>
-                  <span className="file-type-badge flex-shrink-0">{getFileLabel(file.fileType)}</span>
-                  <a
-                    href={downloadUrl(file.id)}
-                    download={file.originalName}
-                    onClick={(e) => e.stopPropagation()}
-                    className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-navy opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-                  >
-                    <Download size={14} />
-                  </a>
-                  <button
-                    onClick={(e) => handleDelete(file.id, e)}
-                    className="p-1.5 rounded hover:bg-risk-light text-slate-400 hover:text-risk opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -752,7 +893,7 @@ function HistoryPanel({ versions, onRestore, onClose }: {
   onClose: () => void;
 }) {
   return (
-    <div className="absolute right-0 top-10 w-64 bg-white border border-slate-200 rounded-xl shadow-panel z-50">
+    <div className="absolute right-0 top-10 w-64 bg-white border border-slate-200 rounded-xl shadow-lg z-50">
       <div className="flex items-center justify-between p-3 border-b border-slate-100">
         <span className="text-sm font-medium text-navy">バージョン履歴</span>
         <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded text-slate-400">
@@ -774,7 +915,7 @@ function HistoryPanel({ versions, onRestore, onClose }: {
             </div>
             <button
               onClick={() => onRestore(v.id)}
-              className="text-xs px-2 py-1 text-azure hover:bg-azure-light rounded"
+              className="text-xs px-2 py-1 text-blue-600 hover:bg-blue-50 rounded"
             >
               復元
             </button>
@@ -790,33 +931,36 @@ function HistoryPanel({ versions, onRestore, onClose }: {
 // ============================================================
 export function DocumentEditor(props: Props) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"editor" | "files">("editor");
+
+  const projectId = props.projectId;
+  const isCustom = props.isCustom === true;
+  const docKey = isCustom
+    ? ((props as CustomDocEditorProps).docKey ?? (props as CustomDocEditorProps).typeKey ?? "")
+    : (props as DocumentEditorProps).docType;
+
+  const initialFiles = props.initialFiles || [];
+
+  // ファイルがあればデフォルトをファイルタブに
+  const [activeTab, setActiveTab] = useState<"editor" | "files">(
+    initialFiles.length > 0 ? "files" : "editor"
+  );
+
   const [content, setContent] = useState(props.initialContent || "");
   const [completeness, setCompleteness] = useState(props.initialCompleteness || 0);
-  const [files, setFiles] = useState<DocFile[]>(props.initialFiles || []);
+  const [files, setFiles] = useState<DocFile[]>(initialFiles);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [versions, setVersions] = useState<Version[]>([]);
   const [viewMode, setViewMode] = useState<"edit" | "preview" | "split">("edit");
-
-  const projectId = props.projectId;
-  const isCustom = props.isCustom === true;
-  const docKey = isCustom ? ((props as CustomDocEditorProps).docKey ?? (props as CustomDocEditorProps).typeKey ?? "") : (props as DocumentEditorProps).docType;
-
-  // ファイルタイプを判定（アップロードされたファイルから判断するか、デフォルトMD）
-  // ここではエディタのlanguageを決める
-  // カスタムドキュメントはMarkdownがデフォルト
   const [editorLanguage, setEditorLanguage] = useState<"markdown" | "html">("markdown");
 
-  // HTMLファイルが読み込まれているかどうかでエディタ言語を切替
   useEffect(() => {
     if (content.trim().startsWith("<!DOCTYPE") || content.trim().startsWith("<html")) {
       setEditorLanguage("html");
     }
   }, []);
 
-  // バージョン履歴取得
   const fetchVersions = async () => {
     const url = isCustom
       ? `/api/projects/${projectId}/custom-docs/${docKey}/versions`
@@ -825,12 +969,9 @@ export function DocumentEditor(props: Props) {
       const res = await fetch(url);
       const data = await res.json();
       setVersions(data.versions || []);
-    } catch {
-      // ignore
-    }
+    } catch {}
   };
 
-  // 保存
   const handleSave = async () => {
     setSaving(true);
     const url = isCustom
@@ -849,7 +990,6 @@ export function DocumentEditor(props: Props) {
     }
   };
 
-  // バージョン復元
   const handleRestore = async (versionId: string) => {
     const url = isCustom
       ? `/api/projects/${projectId}/custom-docs/${docKey}/versions/${versionId}/restore`
@@ -868,7 +1008,6 @@ export function DocumentEditor(props: Props) {
     ? ((props as CustomDocEditorProps).docTitle ?? (props as CustomDocEditorProps).typeLabel ?? docKey)
     : docKey;
 
-  // ビューモードのボタン
   const viewModeButtons: Array<{ mode: "edit" | "preview" | "split"; icon: React.ReactNode; label: string }> = [
     { mode: "edit", icon: <AlignLeft size={13} />, label: "編集" },
     { mode: "split", icon: <Columns size={13} />, label: "分割" },
@@ -877,65 +1016,66 @@ export function DocumentEditor(props: Props) {
 
   return (
     <div className="flex flex-col h-full bg-slate-50">
-      {/* ─── ヘッダー ─── */}
-      <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold text-navy truncate">{title}</h1>
-          <p className="text-xs text-slate-400">v{version}</p>
+      {/* ─── ヘッダー（エディタタブのみ表示）─── */}
+      {activeTab === "editor" && (
+        <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-base font-semibold text-navy truncate">{title}</h1>
+            <p className="text-xs text-slate-400">v{version}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 whitespace-nowrap">完成度</span>
+            <input
+              type="range" min={0} max={100} step={5}
+              value={completeness}
+              onChange={(e) => setCompleteness(Number(e.target.value))}
+              className="w-24"
+            />
+            <span className="text-xs font-medium text-navy w-9 text-right">{completeness}%</span>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              saved
+                ? "bg-emerald-500 text-white"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
+          >
+            {saved ? <Check size={14} /> : <Save size={14} />}
+            {saved ? "保存済み" : saving ? "保存中..." : "保存"}
+          </button>
         </div>
-
-        {/* 完成度スライダー */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400 whitespace-nowrap">完成度</span>
-          <input
-            type="range" min={0} max={100} step={5}
-            value={completeness}
-            onChange={(e) => setCompleteness(Number(e.target.value))}
-            className="w-24"
-          />
-          <span className="text-xs font-medium text-navy w-9 text-right">{completeness}%</span>
-        </div>
-
-        {/* 保存ボタン */}
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-            saved
-              ? "bg-success text-white"
-              : "bg-azure text-white hover:bg-azure-light hover:text-azure"
-          }`}
-        >
-          {saved ? <Check size={14} /> : <Save size={14} />}
-          {saved ? "保存済み" : saving ? "保存中..." : "保存"}
-        </button>
-      </div>
+      )}
 
       {/* ─── タブ ─── */}
       <div className="bg-white border-b border-slate-200 px-4 flex items-center gap-0">
-        <button
-          onClick={() => setActiveTab("editor")}
-          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors ${
-            activeTab === "editor"
-              ? "border-azure text-azure font-medium"
-              : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <FileText size={14} />
-          ✏️ エディタ
-        </button>
+        {/* エディタタブ：ファイルがない場合 or 既にエディタ表示中のみ表示 */}
+        {(files.length === 0 || activeTab === "editor") && (
+          <button
+            onClick={() => setActiveTab("editor")}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors ${
+              activeTab === "editor"
+                ? "border-blue-600 text-blue-600 font-medium"
+                : "border-transparent text-slate-400 hover:text-slate-600"
+            }`}
+          >
+            <FileText size={14} />
+            ✏️ エディタ
+          </button>
+        )}
         <button
           onClick={() => setActiveTab("files")}
           className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors ${
             activeTab === "files"
-              ? "border-azure text-azure font-medium"
+              ? "border-blue-600 text-blue-600 font-medium"
               : "border-transparent text-slate-400 hover:text-slate-600"
           }`}
         >
           <Folder size={14} />
           📁 ファイル
           {files.length > 0 && (
-            <span className="ml-1 text-xs bg-azure-light text-azure px-1.5 py-0.5 rounded-full font-medium">
+            <span className="ml-1 text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full font-medium">
               {files.length}
             </span>
           )}
@@ -943,9 +1083,19 @@ export function DocumentEditor(props: Props) {
 
         <div className="flex-1" />
 
+        {/* ファイルタブ表示中：新規ドキュメント作成ボタン */}
+        {activeTab === "files" && (
+          <button
+            onClick={() => { setContent(""); setActiveTab("editor"); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors mr-1"
+          >
+            <FileText size={13} />
+            新規ドキュメント作成
+          </button>
+        )}
+
         {activeTab === "editor" && (
           <div className="flex items-center gap-1">
-            {/* エディタ言語切替 */}
             <div className="flex items-center gap-1 mr-3">
               <button
                 onClick={() => setEditorLanguage("markdown")}
@@ -969,7 +1119,6 @@ export function DocumentEditor(props: Props) {
               </button>
             </div>
 
-            {/* ビューモード切替 */}
             {viewModeButtons.map(({ mode, icon, label }) => (
               <button
                 key={mode}
@@ -986,7 +1135,6 @@ export function DocumentEditor(props: Props) {
               </button>
             ))}
 
-            {/* 履歴ボタン */}
             <div className="relative ml-2">
               <button
                 onClick={() => { setShowHistory(!showHistory); if (!showHistory) fetchVersions(); }}
