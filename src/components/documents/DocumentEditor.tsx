@@ -14,14 +14,16 @@ import {
 // ============================================================
 type FileType = "md" | "markdown" | "docx" | "doc" | "word" | "pdf" | "html" | "htm";
 
-interface DocFile {
+type DocFile = {
   id: string;
   originalName: string;
   fileType: string;
   fileSize: number;
-  isEditable?: boolean;
+  isEditable: boolean;
   createdAt: string;
-}
+  completeness: number;
+  version: number;
+};
 
 interface DocumentEditorProps {
   projectId: string;
@@ -101,6 +103,85 @@ function inlineMd(s: string): string {
   t = t.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
   t = t.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>');
   return t;
+}
+
+// ============================================================
+// ファイル個別 完成度・バージョン編集
+// ============================================================
+function FileMetaEditor({
+  file, projectId, docKey, isCustom, onUpdate,
+}: {
+  file: DocFile;
+  projectId: string;
+  docKey: string;
+  isCustom: boolean;
+  onUpdate: (updated: Partial<DocFile> & { id: string }) => void;
+}) {
+  const [completeness, setCompleteness] = useState(file.completeness);
+  const [version, setVersion] = useState(file.version);
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  const patchUrl = isCustom
+    ? `/api/projects/${projectId}/custom-docs/${docKey}/files/${file.id}`
+    : `/api/projects/${projectId}/documents/${docKey}/files/${file.id}`;
+
+  async function handleSave() {
+    setSaving(true);
+    await fetch(patchUrl, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ completeness, version }),
+    });
+    onUpdate({ id: file.id, completeness, version });
+    setDirty(false);
+    setSaving(false);
+  }
+
+  const barColor =
+    completeness >= 80 ? "bg-emerald-500" :
+    completeness >= 50 ? "bg-[#1D6FA4]" :
+    completeness >= 20 ? "bg-amber-400" : "bg-slate-200";
+
+  return (
+    <div className="flex items-center gap-3 px-1 pb-0.5">
+      {/* 完成度スライダー */}
+      <div className="flex items-center gap-2 flex-1">
+        <span className="text-[11px] text-slate-400 whitespace-nowrap">完成度</span>
+        <input
+          type="range" min={0} max={100} step={5}
+          value={completeness}
+          onChange={(e) => { setCompleteness(Number(e.target.value)); setDirty(true); }}
+          className="flex-1 h-1"
+        />
+        <span className={`text-[11px] font-medium w-8 text-right ${
+          completeness >= 80 ? "text-emerald-500" :
+          completeness >= 50 ? "text-[#1D6FA4]" :
+          completeness >= 20 ? "text-amber-400" : "text-slate-400"
+        }`}>{completeness}%</span>
+      </div>
+      {/* バージョン */}
+      <div className="flex items-center gap-1">
+        <span className="text-[11px] text-slate-400">v</span>
+        <input
+          type="number" min={1} max={99}
+          value={version}
+          onChange={(e) => { setVersion(Number(e.target.value)); setDirty(true); }}
+          className="w-10 text-[11px] border border-slate-200 rounded px-1 py-0.5 text-center focus:border-[#1D6FA4] focus:outline-none"
+        />
+      </div>
+      {/* 保存ボタン */}
+      {dirty && (
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="text-[11px] px-2 py-0.5 bg-[#1D6FA4] text-white rounded hover:bg-[#1a5f8e] disabled:opacity-50"
+        >
+          {saving ? "…" : "保存"}
+        </button>
+      )}
+    </div>
+  );
 }
 
 function mdToHtml(md: string): string {
@@ -1037,40 +1118,26 @@ function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabP
         ) : (
           <div className="space-y-2">
             {files.map((file: any) => (
-              <div
-                key={file.id}
-                className="file-list-row group cursor-pointer"
-                onClick={() => setActiveFile(file)}
-              >
-                <span className="text-xl flex-shrink-0">{getFileIcon(file.fileType)}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-navy truncate">{file.originalName}</p>
-                  <p className="text-xs text-slate-400">
-                    {formatBytes(file.fileSize)} · {new Date(file.createdAt).toLocaleDateString("ja-JP")}
-                  </p>
-                </div>
-                <span className="file-type-badge flex-shrink-0">{getFileLabel(file.fileType)}</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setActiveFile(file); }}
-                  className="px-2 py-1 text-xs rounded border border-slate-200 text-slate-600 hover:bg-slate-50 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all"
-                >
-                  開く
-                </button>
-                <a
-                  href={downloadUrl(file.id)}
-                  download={file.originalName}
-                  onClick={(e) => e.stopPropagation()}
-                  className="p-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-navy opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-                >
-                  <Download size={14} />
-                </a>
-                <button
-                  onClick={(e) => handleDelete(file.id, e)}
-                  className="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
-                >
-                  <Trash2 size={14} />
-                </button>
+            <div key={file.id} className="file-list-row flex-col items-stretch gap-2 cursor-default">
+              {/* 上段：ファイル名・バッジ・削除 */}
+              <div className="flex items-center gap-2 cursor-pointer" onClick={() => setActiveFile(file)}>
+                <span className="file-type-badge">{getFileLabel(file.fileType)}</span>
+                <span className="flex-1 text-sm text-slate-700 truncate">{file.originalName}</span>
+                <span className="text-xs text-slate-400">{formatSize(file.fileSize)}</span>
+                <span className="text-xs text-slate-400">{new Date(file.createdAt).toLocaleDateString("ja-JP")}</span>
+                <button onClick={(e) => handleDelete(file.id, e)} className="text-slate-300 hover:text-red-400 transition-colors ml-1">✕</button>
               </div>
+              {/* 下段：完成度・バージョン編集（Admin のみ） */}
+              {role === "admin" && (
+                <FileMetaEditor
+                  file={file}
+                  projectId={projectId}
+                  docKey={docKey}
+                  isCustom={isCustom}
+                  onUpdate={(updated) => onFilesChange(files.map((f: any) => f.id === updated.id ? { ...f, ...updated } : f))}
+                />
+              )}
+            </div>
             ))}
           </div>
         )}

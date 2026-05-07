@@ -119,3 +119,20 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     return NextResponse.json({ ok: true });
   });
 }
+
+// PATCH — ファイルの完了状態やバージョンの更新
+export async function PATCH(req: NextRequest, { params }: Params) {
+  return withAdmin(req, async () => {
+    const body = await req.json();
+    const { completeness, version } = body;
+
+    const file = await prisma.customDocumentFile.update({
+      where: { id: params.fileId },
+      data: {
+        ...(completeness !== undefined && { completeness }),
+        ...(version !== undefined && { version }),
+      },
+    });
+    return NextResponse.json({ file });
+  });
+}

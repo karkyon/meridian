@@ -119,3 +119,20 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     return NextResponse.json({ ok: true });
   });
 }
+
+// PATCH — ファイルのメタ情報更新（管理者のみ）
+export async function PATCH(req: NextRequest, { params }: Params) {
+  return withAdmin(req, async () => {
+    const body = await req.json();
+    const { completeness, version } = body;
+
+    const file = await prisma.documentFile.update({
+      where: { id: params.fileId },
+      data: {
+        ...(completeness !== undefined && { completeness }),
+        ...(version !== undefined && { version }),
+      },
+    });
+    return NextResponse.json({ file });
+  });
+}

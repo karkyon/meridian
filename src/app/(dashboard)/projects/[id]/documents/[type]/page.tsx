@@ -56,6 +56,8 @@ export default async function DocumentPage({ params }: Params) {
           fileSize: true,
           isEditable: true,
           createdAt: true,
+          completeness: true,
+          version: true,
         },
       },
       versions: {
@@ -87,6 +89,8 @@ export default async function DocumentPage({ params }: Params) {
           fileSize: f.fileSize,
           isEditable: f.isEditable,
           createdAt: f.createdAt.toISOString(),
+          completeness: f.completeness ?? 0,
+          version: f.version ?? 1,
         }))}
         versions={(doc?.versions ?? []).map((v: any) => ({
           version: v.version,
