@@ -34,6 +34,7 @@ interface DocumentEditorProps {
   version?: number;
   initialCompleteness: number;
   initialFiles?: DocFile[];
+  role?: string;
   isCustom?: false;
 }
 
@@ -59,7 +60,7 @@ type Props = DocumentEditorProps | CustomDocEditorProps;
 // ============================================================
 // ユーティリティ
 // ============================================================
-function formatBytes(bytes: number) {
+function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
@@ -1006,9 +1007,10 @@ interface FileTabProps {
   isCustom: boolean;
   files: DocFile[];
   onFilesChange: (files: DocFile[]) => void;
+  role?: string;
 }
 
-function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabProps) {
+function FileTab({ projectId, docKey, isCustom, files, onFilesChange, role }: FileTabProps) {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [activeFile, setActiveFile] = useState<DocFile | null>(null);
@@ -1042,6 +1044,8 @@ function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabP
             fileSize: data.file.fileSize,
             isEditable: data.file.isEditable,
             createdAt: data.file.createdAt,
+            completeness: data.file.completeness ?? 0,
+            version: data.file.version ?? 1,
           });
         } else if (data.files) {
           // 複数返しにも対応（後方互換）
@@ -1492,13 +1496,14 @@ export function DocumentEditor(props: Props) {
             viewMode={viewMode}
           />
         ) : (
-          <FileTab
-            projectId={projectId}
-            docKey={docKey}
-            isCustom={isCustom}
-            files={files}
-            onFilesChange={setFiles}
-          />
+        <FileTab
+          projectId={projectId}
+          docKey={docKey}
+          isCustom={isCustom}
+          files={files}
+          onFilesChange={setFiles}
+          role={props.role}
+        />
         )}
       </div>
       {/* 未保存離脱確認ダイアログ */}
@@ -1604,6 +1609,8 @@ export function DocumentEditor(props: Props) {
                         fileSize: newFile.fileSize,
                         isEditable: newFile.isEditable,
                         createdAt: newFile.createdAt,
+                        completeness: newFile.completeness ?? 0,
+                        version: newFile.version ?? 1,
                       }]);
                       setIsNewDoc(false);
                       setIsNewDocDirty(false);
