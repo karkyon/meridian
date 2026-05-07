@@ -16,6 +16,16 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     // プレビュー用テキスト取得
     if (action === "preview") {
+      // WORD/PDFはバイナリなので extractedText を返す
+      const ext = (file.originalName ?? "").split(".").pop()?.toLowerCase() ?? "";
+      const isBinary = ["docx", "doc", "pdf"].includes(ext) || ["word", "pdf"].includes(file.fileType ?? "");
+      if (isBinary) {
+        // extractedText があればそれを返す、なければ「表示不可」メッセージ
+        const text = file.extractedText ?? "このファイルのテキストプレビューは利用できません。ダウンロードして確認してください。";
+        return new NextResponse(text, {
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        });
+      }
       try {
         const buf = await readFile(file.storagePath);
         const text = buf.toString("utf-8");
