@@ -53,6 +53,8 @@ export async function POST(req: NextRequest, { params }: Params) {
         storagePath,
         extractedText: extractedText || null,
         isEditable,
+        completeness: 0,
+        version: 1,
         createdBy: user.id,
       },
     });

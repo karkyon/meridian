@@ -45,10 +45,11 @@ export async function POST(req: NextRequest, { params }: Params) {
         storagePath,
         extractedText: extractedText || null,
         isEditable,
+        completeness: 0,
+        version: 1,
         createdBy: user.id,
       },
     });
-
     return NextResponse.json({ file: { ...fileRecord, createdAt: fileRecord.createdAt.toISOString() } }, { status: 201 });
   });
 }

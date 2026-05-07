@@ -14,10 +14,13 @@ const DAYS = [
 
 type SettingsClientProps = {
   hasApiKey: boolean;
+  hasGithubPat: boolean;
   initial: {
     weekly_summary_day: string;
     focus_mode_count: number;
     session_timeout_hours: number;
+    github_auto_sync: boolean;
+    github_cache_hours: number;
   };
 };
 
@@ -29,6 +32,12 @@ export default function SettingsClient({ hasApiKey, initial }: SettingsClientPro
   const [sessionHours, setSessionHours] = useState(initial.session_timeout_hours);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [githubPat, setGithubPat] = useState("");
+  const [showGithubPat, setShowGithubPat] = useState(false);
+  const [githubAutoSync, setGithubAutoSync] = useState(initial.github_auto_sync);
+  const [githubCacheHours, setGithubCacheHours] = useState(initial.github_cache_hours);
+  const [githubTestStatus, setGithubTestStatus] = useState<"idle" | "testing" | "ok" | "error">("idle");
+  const [githubTestUser, setGithubTestUser] = useState("");
 
   async function handleSave() {
     setSaving(true);
@@ -42,6 +51,10 @@ export default function SettingsClient({ hasApiKey, initial }: SettingsClientPro
     if (apiKey.trim()) {
       body.claude_api_key = apiKey.trim();
     }
+
+    if (githubPat.trim()) body.github_pat = githubPat.trim();
+    body.github_auto_sync = githubAutoSync;
+    body.github_cache_hours = githubCacheHours;
 
     try {
       const res = await fetch("/api/settings", {
@@ -61,6 +74,29 @@ export default function SettingsClient({ hasApiKey, initial }: SettingsClientPro
       setMessage({ type: "error", text: "通信エラーが発生しました" });
     } finally {
       setSaving(false);
+    }
+  }
+
+  // GitHub PATのテスト
+  async function handleGithubTest() {
+    const pat = githubPat.trim();
+    if (!pat) return;
+    setGithubTestStatus("testing");
+    try {
+      const res = await fetch("/api/settings/github/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pat }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGithubTestUser(`${data.login}（リポジトリ ${data.repo_count}件にアクセス可能）`);
+        setGithubTestStatus("ok");
+      } else {
+        setGithubTestStatus("error");
+      }
+    } catch {
+      setGithubTestStatus("error");
     }
   }
 
@@ -119,6 +155,91 @@ export default function SettingsClient({ hasApiKey, initial }: SettingsClientPro
               Anthropic Console →
             </a>
           </p>
+        </div>
+      </div>
+
+      {/* GitHub連携設定 */}
+      <div className="bg-white rounded-xl border-2 border-[#1D6FA4]/30 p-5 space-y-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+              </svg>
+              GitHub連携設定
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Personal Access Token（PAT）を登録。必要権限: <code className="bg-slate-100 px-1 rounded">repo (read)</code> のみ
+            </p>
+          </div>
+          {hasGithubPat && (
+            <span className="text-xs text-emerald-600 font-medium">✓ 登録済み</span>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+            Personal Access Token (PAT)
+          </label>
+          <div className="relative flex gap-2">
+            <input
+              type={showGithubPat ? "text" : "password"}
+              value={githubPat}
+              onChange={(e) => { setGithubPat(e.target.value); setGithubTestStatus("idle"); }}
+              placeholder={hasGithubPat ? "新しいトークンを入力して上書き..." : "ghp_xxxxxxxxxxxxxxxxxxxx"}
+              className="flex-1 rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm font-mono focus:border-[#1D6FA4] focus:outline-none focus:ring-2 focus:ring-[#1D6FA4]/20"
+            />
+            <button
+              type="button"
+              onClick={() => setShowGithubPat(!showGithubPat)}
+              className="px-3 border border-slate-200 rounded-lg text-slate-400 hover:text-slate-600 text-xs"
+            >
+              {showGithubPat ? "隠す" : "表示"}
+            </button>
+            <button
+              type="button"
+              onClick={handleGithubTest}
+              disabled={!githubPat.trim() || githubTestStatus === "testing"}
+              className="px-4 py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50 whitespace-nowrap"
+            >
+              {githubTestStatus === "testing" ? "確認中..." : "接続テスト"}
+            </button>
+          </div>
+          {githubTestStatus === "ok" && (
+            <p className="text-xs text-emerald-600">✓ 接続成功 — {githubTestUser}</p>
+          )}
+          {githubTestStatus === "error" && (
+            <p className="text-xs text-red-500">✗ 接続失敗。トークンを確認してください。</p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+              キャッシュ有効期限
+            </label>
+            <select
+              value={githubCacheHours}
+              onChange={(e) => setGithubCacheHours(Number(e.target.value))}
+              className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-[#1D6FA4] focus:outline-none bg-white"
+            >
+              <option value={1}>1時間</option>
+              <option value={6}>6時間</option>
+              <option value={24}>24時間</option>
+              <option value={72}>3日</option>
+            </select>
+          </div>
+          <div className="space-y-1.5 flex flex-col justify-end pb-0.5">
+            <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={githubAutoSync}
+                onChange={(e) => setGithubAutoSync(e.target.checked)}
+                className="rounded border-slate-200"
+              />
+              AI進捗推定を週次自動実行
+            </label>
+          </div>
         </div>
       </div>
 

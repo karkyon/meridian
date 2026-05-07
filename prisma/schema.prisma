@@ -176,6 +176,10 @@ model Settings {
   id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   claudeApiKeyEncrypted String?  @map("claude_api_key_encrypted") @db.Text
   keyIv                 String?  @map("key_iv") @db.VarChar(32)
+  githubPatEncrypted    String?  @map("github_pat_encrypted") @db.Text
+  githubPatIv           String?  @map("github_pat_iv") @db.VarChar(32)
+  githubAutoSync        Boolean  @default(false) @map("github_auto_sync")
+  githubCacheHours      Int      @default(6) @map("github_cache_hours")
   weeklySummaryDay      String   @default("monday") @map("weekly_summary_day") @db.VarChar(10)
   focusModeCount        Int      @default(3) @map("focus_mode_count")
   sessionTimeoutHours   Int      @default(8) @map("session_timeout_hours")

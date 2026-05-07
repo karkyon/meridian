@@ -9,28 +9,19 @@ export default async function SettingsPage() {
   const role = (session?.user as { role?: string })?.role;
   if (role !== "admin") redirect("/dashboard");
 
-  const settings = await prisma.settings.findFirst({
-    select: {
-      claudeApiKeyEncrypted: true,
-      weeklySummaryDay: true,
-      focusModeCount: true,
-      sessionTimeoutHours: true,
-    },
-  });
+  const settings = await prisma.settings.findFirst();
 
   return (
-    <>
-      <TopBar title="設定" />
-      <main className="flex-1 p-6 max-w-2xl">
-        <SettingsClient
-          hasApiKey={!!settings?.claudeApiKeyEncrypted}
-          initial={{
-            weekly_summary_day: settings?.weeklySummaryDay ?? "monday",
-            focus_mode_count: settings?.focusModeCount ?? 3,
-            session_timeout_hours: settings?.sessionTimeoutHours ?? 8,
-          }}
-        />
-      </main>
-    </>
+    <SettingsClient
+      hasApiKey={!!settings?.claudeApiKeyEncrypted}
+      hasGithubPat={!!settings?.githubPatEncrypted}  // ← 追加
+      initial={{
+        weekly_summary_day: settings?.weeklySummaryDay ?? "monday",
+        focus_mode_count: settings?.focusModeCount ?? 3,
+        session_timeout_hours: settings?.sessionTimeoutHours ?? 8,
+        github_auto_sync: settings?.githubAutoSync ?? false,       // ← 追加
+        github_cache_hours: settings?.githubCacheHours ?? 6,       // ← 追加
+      }}
+    />
   );
 }

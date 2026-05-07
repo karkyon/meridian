@@ -8,7 +8,6 @@ import {
 
 // ============================================================
 // 標準ドキュメント種別 — DB enum値に完全統一
-// DB: planning / requirements / external_spec / db_spec / api_spec / wireframe
 // ============================================================
 const STANDARD_DOC_TYPES = [
   { type: "planning",      label: "企画書",           icon: "📋" },
@@ -46,6 +45,7 @@ interface Project {
   status: string;
   progressCache: number;
   docCompleteness: number;
+  repositoryUrl?: string | null;
 }
 
 interface Props {
@@ -116,7 +116,7 @@ function DocCard({
               )}
             </div>
 
-            {/* ファイル名リスト（1件以上の場合のみ） */}
+            {/* ファイル名リスト */}
             {hasFiles && displayFiles.length > 0 && (
               <div className="space-y-0.5 mt-1">
                 {displayFiles.map((f, i) => {
@@ -159,6 +159,17 @@ function DocCard({
 }
 
 // ============================================================
+// GitHubアイコン（SVG）
+// ============================================================
+function GitHubIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="currentColor">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+    </svg>
+  );
+}
+
+// ============================================================
 // メインコンポーネント
 // ============================================================
 export default function ProjectDetailClient({
@@ -183,34 +194,72 @@ export default function ProjectDetailClient({
     };
   });
 
+  const hasRepo = !!project.repositoryUrl;
+
   return (
     <div className="flex flex-col gap-4">
       {/* タブ */}
-      <div className="flex items-center gap-0 border-b border-slate-200">
-        {[
-          { id: "docs", label: "ドキュメント", icon: <FileText size={14} /> },
-          { id: "attachments", label: "添付資料", icon: <Paperclip size={14} />, count: attachmentCount },
-        ].map((tab: any) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as "docs" | "attachments")}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors ${
-              activeTab === tab.id
-                ? "border-[#1D6FA4] text-[#1D6FA4] font-medium"
-                : "border-transparent text-slate-400 hover:text-slate-600"
-            }`}
+      <div className="flex items-center gap-0 border-b border-slate-200 overflow-x-auto">
+        {/* ドキュメントタブ */}
+        <button
+          onClick={() => setActiveTab("docs")}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors whitespace-nowrap ${
+            activeTab === "docs"
+              ? "border-[#1D6FA4] text-[#1D6FA4] font-medium"
+              : "border-transparent text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          <FileText size={14} />
+          ドキュメント
+        </button>
+
+        {/* 添付資料タブ */}
+        <button
+          onClick={() => setActiveTab("attachments")}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors whitespace-nowrap ${
+            activeTab === "attachments"
+              ? "border-[#1D6FA4] text-[#1D6FA4] font-medium"
+              : "border-transparent text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          <Paperclip size={14} />
+          添付資料
+          {attachmentCount > 0 && (
+            <span className="ml-1 text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">
+              {attachmentCount}
+            </span>
+          )}
+        </button>
+
+        {/* GitHub タブ（NEW） */}
+        <Link
+          href={`/projects/${project.id}/github`}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors whitespace-nowrap ${
+            hasRepo
+              ? "border-transparent text-slate-400 hover:text-[#1D6FA4] hover:border-[#1D6FA4]/40"
+              : "border-transparent text-slate-300 cursor-default pointer-events-none"
+          }`}
+          title={hasRepo ? undefined : "プロジェクト編集でリポジトリURLを設定してください"}
+        >
+          <GitHubIcon className="w-3.5 h-3.5" />
+          GitHub
+          {!hasRepo && (
+            <span className="text-[10px] text-slate-300 ml-0.5">未設定</span>
+          )}
+        </Link>
+
+        {/* AI進捗推定タブ（Admin・NEW） */}
+        {role === "admin" && (
+          <Link
+            href={`/projects/${project.id}/ai-progress`}
+            className="flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 border-transparent text-slate-400 hover:text-emerald-600 hover:border-emerald-500/40 transition-colors whitespace-nowrap"
           >
-            {tab.icon}
-            {tab.label}
-            {tab.count !== undefined && tab.count > 0 && (
-              <span className="ml-1 text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">
-                {tab.count}
-              </span>
-            )}
-          </button>
-        ))}
+            🤖 AI進捗推定
+          </Link>
+        )}
       </div>
 
+      {/* ドキュメントタブ コンテンツ */}
       {activeTab === "docs" && (
         <div className="space-y-4">
           {/* AI一括生成バナー（Adminのみ） */}
@@ -230,20 +279,20 @@ export default function ProjectDetailClient({
 
           {/* 標準6種ドキュメント */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {mergedDocs.map((doc: any) => (
-            <DocCard
-              key={doc.type}
-              icon={doc.icon}
-              label={doc.label}
-              completeness={doc.completeness}
-              version={doc.version}
-              fileCount={doc.fileCount}
-              files={doc.files}
-              href={`/projects/${project.id}/documents/${doc.type}`}
-              exists={doc.exists}
-              aiGenerated={doc.aiGenerated}
-            />
-          ))}
+            {mergedDocs.map((doc: any) => (
+              <DocCard
+                key={doc.type}
+                icon={doc.icon}
+                label={doc.label}
+                completeness={doc.completeness}
+                version={doc.version}
+                fileCount={doc.fileCount}
+                files={doc.files}
+                href={`/projects/${project.id}/documents/${doc.type}`}
+                exists={doc.exists}
+                aiGenerated={doc.aiGenerated}
+              />
+            ))}
           </div>
 
           {/* 区切り */}
@@ -257,19 +306,19 @@ export default function ProjectDetailClient({
 
           {/* カスタムドキュメント */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {customDocTypes.map((doc: any) => (
-            <DocCard
-              key={doc.key}
-              icon="📝"
-              label={doc.label}
-              completeness={doc.completeness}
-              version={doc.version}
-              fileCount={doc.fileCount}
-              files={doc.files}
-              href={`/projects/${project.id}/custom-docs/${doc.key}`}
-              exists={doc.completeness > 0 || doc.version > 1}
-            />
-          ))}
+            {customDocTypes.map((doc: any) => (
+              <DocCard
+                key={doc.key}
+                icon="📝"
+                label={doc.label}
+                completeness={doc.completeness}
+                version={doc.version}
+                fileCount={doc.fileCount}
+                files={doc.files as any}
+                href={`/projects/${project.id}/custom-docs/${doc.key}`}
+                exists={doc.completeness > 0 || doc.version > 1}
+              />
+            ))}
           </div>
 
           {/* カテゴリ追加（Admin） */}
@@ -282,6 +331,7 @@ export default function ProjectDetailClient({
         </div>
       )}
 
+      {/* 添付資料タブ コンテンツ */}
       {activeTab === "attachments" && (
         <div className="text-center py-12">
           <Paperclip size={32} className="mx-auto mb-3 text-slate-300" />
