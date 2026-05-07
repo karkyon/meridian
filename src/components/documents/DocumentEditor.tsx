@@ -683,7 +683,8 @@ function FilePreviewScreen({ file, projectId, docKey, isCustom, allFiles, onClos
 
   const ft = (file.fileType ?? "").toLowerCase().replace(/^\./, "") as FileType;
   const isMd = ft === "md" || ft === "markdown";
-  const isDocx = ft === "docx" || ft === "doc";
+  const isDocx = ft === "docx" || ft === "doc" || ft === "word";
+  const isPdf = ft === "pdf";
   const isHtmlFile = ft === "html" || ft === "htm";
   const canEdit = isMd || isHtmlFile;
   const editorLang: "markdown" | "html" = isMd ? "markdown" : "html";
@@ -703,6 +704,16 @@ function FilePreviewScreen({ file, projectId, docKey, isCustom, allFiles, onClos
           {isDirty && <span className="text-xs text-amber-500 font-medium">● 未保存</span>}
         </div>
         <div className="flex items-center gap-2">
+{isDocx && (
+            <span className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-700 font-medium mr-2">
+              📄 Word文書（読み取り専用）
+            </span>
+          )}
+          {isPdf && (
+            <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 font-medium mr-2">
+              🔴 PDF（読み取り専用）
+            </span>
+          )}
           {canEdit && (
             <>
               <div className="flex items-center gap-1 mr-1">
@@ -765,7 +776,36 @@ function FilePreviewScreen({ file, projectId, docKey, isCustom, allFiles, onClos
             viewMode={viewMode}
           />
         ) : isDocx ? (
-          <WordViewer content={previewContent} fileName={file.originalName} />
+          // WORDはバイナリプレビュー不可 → extractedTextを表示
+          <div className="flex flex-col h-full bg-white">
+            <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border-b border-slate-200">
+              <span className="text-xs text-slate-500">📄 Word文書の内容（テキスト抽出）</span>
+              <a href={baseUrl} download={file.originalName} className="ml-auto text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-1">
+                <Download size={12} /> DOCXをダウンロード
+              </a>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <pre className="whitespace-pre-wrap font-sans text-sm text-slate-700 leading-relaxed">
+                {previewContent || "テキストを抽出できませんでした。ダウンロードして確認してください。"}
+              </pre>
+            </div>
+          </div>
+        ) : isPdf ? (
+          // PDFはiframeで表示（CSP問題のためobjectタグを使用）
+          <div className="flex flex-col h-full bg-white">
+            <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border-b border-slate-200">
+              <span className="text-xs text-slate-500">🔴 PDFプレビュー</span>
+              <a href={baseUrl} download={file.originalName} className="ml-auto text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 flex items-center gap-1">
+                <Download size={12} /> PDFをダウンロード
+              </a>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 text-center">
+              <p className="text-sm text-slate-500 mb-4">PDFのインライン表示はブラウザのセキュリティ制限により表示できない場合があります。</p>
+              <a href={baseUrl} download={file.originalName} className="inline-flex items-center gap-2 px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700 text-sm">
+                <Download size={14} /> PDFをダウンロードして確認
+              </a>
+            </div>
+          </div>
         ) : isHtmlFile ? (
           <HtmlPreview code={previewContent} />
         ) : (
@@ -818,12 +858,30 @@ function FileTab({ projectId, docKey, isCustom, files, onFilesChange }: FileTabP
   const handleUpload = async (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     setUploading(true);
-    const formData = new FormData();
-    Array.from(fileList).forEach((f: any) => formData.append("file", f));
+    // 複数ファイル対応：1ファイルずつPOST（APIが単数返しのため）
+    const newFiles: DocFile[] = [];
     try {
-      const res = await fetch(uploadUrl, { method: "POST", body: formData });
-      const data = await res.json();
-      if (data.files) onFilesChange([...files, ...data.files]);
+      for (const f of Array.from(fileList)) {
+        const formData = new FormData();
+        formData.append("file", f);
+        const res = await fetch(uploadUrl, { method: "POST", body: formData });
+        const data = await res.json();
+        // APIレスポンスは { file: {...} } 単数形
+        if (data.file) {
+          newFiles.push({
+            id: data.file.id,
+            originalName: data.file.originalName,
+            fileType: data.file.fileType,
+            fileSize: data.file.fileSize,
+            isEditable: data.file.isEditable,
+            createdAt: data.file.createdAt,
+          });
+        } else if (data.files) {
+          // 複数返しにも対応（後方互換）
+          newFiles.push(...data.files);
+        }
+      }
+      if (newFiles.length > 0) onFilesChange([...files, ...newFiles]);
     } finally {
       setUploading(false);
     }
@@ -999,9 +1057,9 @@ export function DocumentEditor(props: Props) {
   const initialFiles = props.initialFiles || [];
 
   // ファイルがあればデフォルトをファイルタブに
-  const [activeTab, setActiveTab] = useState<"editor" | "files">(
-    initialFiles.length > 0 ? "files" : "editor"
-  );
+  // 常にファイルタブをデフォルトに（0件でもエディタに飛ばない）
+  const [activeTab, setActiveTab] = useState<"editor" | "files">("files");
+  
   // 新規ドキュメント作成モード（true = 初回保存時にファイル名入力要求）
   const [isNewDoc, setIsNewDoc] = useState(false);
   const [newDocFileName, setNewDocFileName] = useState("");
@@ -1124,20 +1182,18 @@ export function DocumentEditor(props: Props) {
 
       {/* ─── タブ ─── */}
       <div className="bg-white border-b border-slate-200 px-4 flex items-center gap-0">
-        {/* エディタタブ：ファイルがない場合 or 既にエディタ表示中のみ表示 */}
-        {(files.length === 0 || activeTab === "editor") && (
-          <button
-            onClick={() => setActiveTab("editor")}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors ${
-              activeTab === "editor"
-                ? "border-blue-600 text-blue-600 font-medium"
-                : "border-transparent text-slate-400 hover:text-slate-600"
-            }`}
-          >
-            <FileText size={14} />
-            ✏️ エディタ
-          </button>
-        )}
+        {/* エディタタブ：常時表示 */}
+        <button
+          onClick={() => setActiveTab("editor")}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors ${
+            activeTab === "editor"
+              ? "border-blue-600 text-blue-600 font-medium"
+              : "border-transparent text-slate-400 hover:text-slate-600"
+          }`}
+        >
+          <FileText size={14} />
+          ✏️ エディタ
+        </button>
         <button
           onClick={() => setActiveTab("files")}
           className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors ${
@@ -1287,8 +1343,17 @@ export function DocumentEditor(props: Props) {
                     formData.append("file", blob, newDocFileName.trim().endsWith(".md") ? newDocFileName.trim() : newDocFileName.trim() + ".md");
                     const res = await fetch(uploadUrl, { method: "POST", body: formData });
                     const data = await res.json();
-                    if (data.files) {
-                      setFiles((prev) => [...prev, ...data.files]);
+                    // APIは { file: {...} } 単数形で返す
+                    const newFile = data.file ?? (data.files?.[0]);
+                    if (newFile) {
+                      setFiles((prev) => [...prev, {
+                        id: newFile.id,
+                        originalName: newFile.originalName,
+                        fileType: newFile.fileType,
+                        fileSize: newFile.fileSize,
+                        isEditable: newFile.isEditable,
+                        createdAt: newFile.createdAt,
+                      }]);
                       setIsNewDoc(false);
                       const savedName = newDocFileName.trim().endsWith(".md") ? newDocFileName.trim() : newDocFileName.trim() + ".md";
                       setSavedNewDocName(savedName);
