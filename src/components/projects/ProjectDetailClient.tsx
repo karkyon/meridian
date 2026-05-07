@@ -28,6 +28,7 @@ interface StandardDoc {
   version: number;
   fileCount: number;
   aiGenerated: boolean;
+  files?: { originalName: string }[];
 }
 
 interface CustomDocType {
@@ -36,6 +37,7 @@ interface CustomDocType {
   completeness: number;
   version: number;
   fileCount: number;
+  files?: { originalName: string }[];
 }
 
 interface Project {
@@ -58,15 +60,20 @@ interface Props {
 // ドキュメントカード
 // ============================================================
 function DocCard({
-  icon, label, completeness, version, fileCount, href, exists, aiGenerated,
+  icon, label, completeness, version, fileCount, files, href, exists, aiGenerated,
 }: {
   icon: string; label: string; completeness: number; version: number;
-  fileCount: number; href: string; exists: boolean; aiGenerated?: boolean;
+  fileCount: number; files?: { originalName: string }[];
+  href: string; exists: boolean; aiGenerated?: boolean;
 }) {
+  const hasFiles = fileCount > 0;
   const barColor =
     completeness >= 80 ? "bg-emerald-500" :
     completeness >= 50 ? "bg-[#1D6FA4]" :
     completeness >= 20 ? "bg-amber-400" : "bg-slate-200";
+
+  const displayFiles = files?.slice(0, 3) ?? [];
+  const extraCount = fileCount > 3 ? fileCount - 3 : 0;
 
   return (
     <Link href={href} className="block group">
@@ -74,6 +81,7 @@ function DocCard({
         <div className="flex items-start gap-3">
           <span className="text-xl mt-0.5 shrink-0">{icon}</span>
           <div className="flex-1 min-w-0">
+            {/* タイトル行 */}
             <div className="flex items-center gap-2 mb-1">
               <p className="text-sm font-medium text-[#1A3A5C] group-hover:text-[#1D6FA4] transition-colors truncate">
                 {label}
@@ -84,17 +92,45 @@ function DocCard({
                 </span>
               )}
             </div>
+
+            {/* バージョン・件数・完成度 */}
             <div className="flex items-center gap-3 text-xs text-slate-400 mb-2">
-              <span>v{version}</span>
+              <span className={hasFiles ? "text-slate-500" : "text-slate-300"}>
+                {hasFiles ? `v${version}` : "—"}
+              </span>
               <span>📁 {fileCount}件</span>
-              <span className="ml-auto font-medium text-slate-500">{completeness}%</span>
+              <span className={`ml-auto font-medium ${hasFiles ? "text-slate-500" : "text-slate-300"}`}>
+                {hasFiles ? `${completeness}%` : "—"}
+              </span>
             </div>
-            <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all ${barColor}`}
-                style={{ width: `${completeness}%` }}
-              />
+
+            {/* 完成度バー */}
+            <div className="h-1 bg-slate-100 rounded-full overflow-hidden mb-2">
+              {hasFiles ? (
+                <div
+                  className={`h-full rounded-full transition-all ${barColor}`}
+                  style={{ width: `${completeness}%` }}
+                />
+              ) : (
+                <div className="h-full w-full bg-slate-100 rounded-full" />
+              )}
             </div>
+
+            {/* ファイル名リスト（1件以上の場合のみ） */}
+            {hasFiles && displayFiles.length > 0 && (
+              <div className="space-y-0.5 mt-1">
+                {displayFiles.map((f, i) => (
+                  <p key={i} className="text-[11px] text-slate-400 truncate leading-tight">
+                    📄 {f.originalName}
+                  </p>
+                ))}
+                {extraCount > 0 && (
+                  <p className="text-[11px] text-slate-300 leading-tight">
+                    + {extraCount}件
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <ChevronRight size={14} className="text-slate-300 group-hover:text-[#1D6FA4] mt-1 shrink-0 transition-colors" />
         </div>
@@ -179,19 +215,20 @@ export default function ProjectDetailClient({
 
           {/* 標準6種ドキュメント */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {mergedDocs.map((doc: any) => (
-              <DocCard
-                key={doc.type}
-                icon={doc.icon}
-                label={doc.label}
-                completeness={doc.completeness}
-                version={doc.version}
-                fileCount={doc.fileCount}
-                href={`/projects/${project.id}/documents/${doc.type}`}
-                exists={doc.exists}
-                aiGenerated={doc.aiGenerated}
-              />
-            ))}
+          {mergedDocs.map((doc: any) => (
+            <DocCard
+              key={doc.type}
+              icon={doc.icon}
+              label={doc.label}
+              completeness={doc.completeness}
+              version={doc.version}
+              fileCount={doc.fileCount}
+              files={doc.files}
+              href={`/projects/${project.id}/documents/${doc.type}`}
+              exists={doc.exists}
+              aiGenerated={doc.aiGenerated}
+            />
+          ))}
           </div>
 
           {/* 区切り */}
@@ -205,18 +242,19 @@ export default function ProjectDetailClient({
 
           {/* カスタムドキュメント */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {customDocTypes.map((doc: any) => (
-              <DocCard
-                key={doc.key}
-                icon="📝"
-                label={doc.label}
-                completeness={doc.completeness}
-                version={doc.version}
-                fileCount={doc.fileCount}
-                href={`/projects/${project.id}/custom-docs/${doc.key}`}
-                exists={doc.completeness > 0 || doc.version > 1}
-              />
-            ))}
+          {customDocTypes.map((doc: any) => (
+            <DocCard
+              key={doc.key}
+              icon="📝"
+              label={doc.label}
+              completeness={doc.completeness}
+              version={doc.version}
+              fileCount={doc.fileCount}
+              files={doc.files}
+              href={`/projects/${project.id}/custom-docs/${doc.key}`}
+              exists={doc.completeness > 0 || doc.version > 1}
+            />
+          ))}
           </div>
 
           {/* カテゴリ追加（Admin） */}
