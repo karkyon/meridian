@@ -24,7 +24,7 @@ type SettingsClientProps = {
   };
 };
 
-export default function SettingsClient({ hasApiKey, initial }: SettingsClientProps) {
+export default function SettingsClient({ hasApiKey, hasGithubPat, initial }: SettingsClientProps) {
   const [apiKey, setApiKey] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [summaryDay, setSummaryDay] = useState(initial.weekly_summary_day);
