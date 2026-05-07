@@ -215,8 +215,6 @@ export default function ProjectDetailClient({
                 key={doc.type}
                 icon={doc.icon}
                 label={doc.label}
-                completeness={doc.completeness}
-                version={doc.version}
                 fileCount={doc.fileCount}
                 files={doc.files}
                 href={`/projects/${project.id}/documents/${doc.type}`}
@@ -242,12 +240,10 @@ export default function ProjectDetailClient({
                 key={doc.key}
                 icon="📝"
                 label={doc.label}
-                completeness={doc.completeness}
-                version={doc.version}
                 fileCount={doc.fileCount}
                 files={doc.files as any}
                 href={`/projects/${project.id}/custom-docs/${doc.key}`}
-                exists={doc.completeness > 0 || doc.version > 1}
+                exists={doc.fileCount > 0}
               />
             ))}
           </div>
