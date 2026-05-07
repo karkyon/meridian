@@ -60,18 +60,13 @@ interface Props {
 // ドキュメントカード
 // ============================================================
 function DocCard({
-  icon, label, completeness, version, fileCount, files, href, exists, aiGenerated,
+  icon, label, fileCount, files, href, exists, aiGenerated,
 }: {
-  icon: string; label: string; completeness: number; version: number;
+  icon: string; label: string;
   fileCount: number; files?: { originalName: string; completeness: number; version: number }[];
   href: string; exists: boolean; aiGenerated?: boolean;
 }) {
   const hasFiles = fileCount > 0;
-  const barColor =
-    completeness >= 80 ? "bg-emerald-500" :
-    completeness >= 50 ? "bg-[#1D6FA4]" :
-    completeness >= 20 ? "bg-amber-400" : "bg-slate-200";
-
   const displayFiles = files?.slice(0, 3) ?? [];
   const extraCount = fileCount > 3 ? fileCount - 3 : 0;
 
