@@ -163,6 +163,7 @@ export default function ProjectDetailClient({
       completeness: data?.completeness ?? 0,
       version: data?.version ?? 0,
       fileCount: data?.fileCount ?? 0,
+      files: data?.files ?? [],
       exists: !!data,
       aiGenerated: data?.aiGenerated ?? false,
     };
