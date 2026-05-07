@@ -172,6 +172,22 @@
   line-height: 1.65;
 }
 
+/* blockquote（Notionスタイル） */
+.md-preview blockquote {
+  border-left: 3px solid #1a1a1a;
+  margin: 0.5rem 0;
+  padding: 0.25rem 0 0.25rem 1rem;
+  color: #374151;
+  font-style: normal;
+  line-height: 1.8;
+}
+
+.md-preview blockquote br {
+  display: block;
+  content: "";
+  margin: 0;
+}
+
 /* ============================================================
    テーブル：Notionスタイル（スクショ2完全準拠）
    ・罫線あり（薄グレーボーダー）

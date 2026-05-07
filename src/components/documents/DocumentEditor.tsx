@@ -71,10 +71,11 @@ function getFileIcon(fileType: string) {
 }
 
 function getFileLabel(fileType: string) {
+  const ft = (fileType ?? "").toLowerCase().replace(/^\./, "");
   const labels: Record<string, string> = {
-    md: "Markdown", docx: "Word", doc: "Word", pdf: "PDF", html: "HTML",
+    md: "MARKDOWN", docx: "WORD", doc: "WORD", pdf: "PDF", html: "HTML", htm: "HTML",
   };
-  return labels[fileType] ?? fileType.toUpperCase();
+  return labels[ft] ?? ft.toUpperCase();
 }
 
 // ============================================================
@@ -191,8 +192,18 @@ function mdToHtml(md: string): string {
     // テーブル以外の行でテーブルを閉じる
     closeTable();
 
-    // ── 空行 → リストを閉じる ──
-    // if (trimmed === "") { closeLists(); out.push(""); continue; }
+    // ── blockquote（> テキスト）連続行をまとめる ──
+    if (/^>/.test(trimmed)) {
+      closeLists();
+      const bqLines: string[] = [];
+      while (i < lines.length && /^>/.test(lines[i].trim())) {
+        bqLines.push(inlineMd(lines[i].trim().replace(/^>{1,}\s*/, "")));
+        i++;
+      }
+      i--; // ループのi++と合わせる
+      out.push(`<blockquote>${bqLines.join("<br>")}</blockquote>`);
+      continue;
+    }
 
     // ── 水平線 ──
     if (/^-{3,}$/.test(trimmed)) { closeLists(); out.push("<hr>"); continue; }
@@ -326,6 +337,24 @@ interface TextEditorProps {
 
 function TextEditor({ value, onChange, language, viewMode, onViewModeChange, onSave, showSaveButton }: TextEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [floatMenu, setFloatMenu] = useState<{ x: number; y: number } | null>(null);
+
+  const handleSelect = () => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const { selectionStart: s, selectionEnd: e } = ta;
+    if (s === e) { setFloatMenu(null); return; }
+    // テキストエリア内の選択位置をDOMのselectionから取得
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) { setFloatMenu(null); return; }
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const containerRect = ta.closest(".flex-col")?.getBoundingClientRect() ?? ta.getBoundingClientRect();
+    setFloatMenu({
+      x: rect.left - containerRect.left + rect.width / 2,
+      y: rect.top - containerRect.top - 44,
+    });
+  };
 
   const insertWrap = (before: string, after = before) => {
     const ta = textareaRef.current;
@@ -378,7 +407,33 @@ function TextEditor({ value, onChange, language, viewMode, onViewModeChange, onS
   ];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
+      {/* フローティングツールバー */}
+      {floatMenu && language === "markdown" && (
+        <div
+          className="absolute z-50 flex items-center gap-0.5 bg-[#1A3A5C] rounded-lg shadow-xl px-1.5 py-1 pointer-events-auto"
+          style={{ left: floatMenu.x, top: floatMenu.y, transform: "translateX(-50%)" }}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          {[
+            { label: "B", action: () => insertWrap("**"), title: "太字" },
+            { label: "I", action: () => insertWrap("*"), title: "斜体" },
+            { label: "H1", action: () => insertLine("# "), title: "見出し1" },
+            { label: "H2", action: () => insertLine("## "), title: "見出し2" },
+            { label: "—", action: () => insertLine("> "), title: "引用" },
+            { label: "</>", action: () => insertWrap("`"), title: "コード" },
+          ].map((btn) => (
+            <button
+              key={btn.label}
+              onClick={btn.action}
+              title={btn.title}
+              className="px-2 py-0.5 text-xs text-white hover:bg-white/20 rounded transition-colors font-medium"
+            >
+              {btn.label}
+            </button>
+          ))}
+        </div>
+      )}
       {/* ツールバー */}
       <div className="flex items-center gap-1 px-3 py-1.5 border-b border-slate-100 bg-slate-50/80 flex-wrap">
         {toolbar.map((t: any, i: number) => (
@@ -430,6 +485,10 @@ function TextEditor({ value, onChange, language, viewMode, onViewModeChange, onS
             ref={textareaRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onSelect={handleSelect}
+            onMouseUp={handleSelect}
+            onKeyUp={handleSelect}
+            onBlur={() => setTimeout(() => setFloatMenu(null), 150)}
             className="flex-1 resize-none p-4 font-mono text-sm text-slate-700 bg-white outline-none leading-relaxed"
             spellCheck={false}
             placeholder={language === "markdown" ? "# タイトル\n\n本文を入力..." : "<!-- HTML を入力 -->\n<div class=\"...\">"}
@@ -622,10 +681,10 @@ function FilePreviewScreen({ file, projectId, docKey, isCustom, allFiles, onClos
     }
   };
 
-  const ft = file.fileType as FileType;
-  const isMd = ft === "md";
+  const ft = (file.fileType ?? "").toLowerCase().replace(/^\./, "") as FileType;
+  const isMd = ft === "md" || ft === "markdown";
   const isDocx = ft === "docx" || ft === "doc";
-  const isHtmlFile = ft === "html";
+  const isHtmlFile = ft === "html" || ft === "htm";
   const canEdit = isMd || isHtmlFile;
   const editorLang: "markdown" | "html" = isMd ? "markdown" : "html";
 
@@ -644,7 +703,7 @@ function FilePreviewScreen({ file, projectId, docKey, isCustom, allFiles, onClos
           {isDirty && <span className="text-xs text-amber-500 font-medium">● 未保存</span>}
         </div>
         <div className="flex items-center gap-2">
-          {canEdit && !loading && previewContent !== null && (
+          {canEdit && (
             <>
               <div className="flex items-center gap-1 mr-1">
                 <button className="text-xs px-2 py-1 rounded bg-slate-200 text-navy font-medium">
@@ -704,7 +763,6 @@ function FilePreviewScreen({ file, projectId, docKey, isCustom, allFiles, onClos
             onChange={handleEditChange}
             language={editorLang}
             viewMode={viewMode}
-            onViewModeChange={setViewMode}
           />
         ) : isDocx ? (
           <WordViewer content={previewContent} fileName={file.originalName} />
@@ -947,6 +1005,7 @@ export function DocumentEditor(props: Props) {
   // 新規ドキュメント作成モード（true = 初回保存時にファイル名入力要求）
   const [isNewDoc, setIsNewDoc] = useState(false);
   const [newDocFileName, setNewDocFileName] = useState("");
+  const [savedNewDocName, setSavedNewDocName] = useState<string | null>(null);
   const [showNewDocSaveDialog, setShowNewDocSaveDialog] = useState(false);
   const [content, setContent] = useState(props.initialContent || "");
 
@@ -1026,6 +1085,11 @@ export function DocumentEditor(props: Props) {
           <div className="flex-1 min-w-0">
             {isNewDoc ? (
               <h1 className="text-base font-semibold text-slate-400 italic">新規ドキュメント（未保存）</h1>
+            ) : savedNewDocName ? (
+              <>
+                <h1 className="text-base font-semibold text-navy truncate">{savedNewDocName}</h1>
+                <p className="text-xs text-slate-400">保存済み</p>
+              </>
             ) : (
               <>
                 <h1 className="text-base font-semibold text-navy truncate">{title}</h1>
@@ -1226,9 +1290,13 @@ export function DocumentEditor(props: Props) {
                     if (data.files) {
                       setFiles((prev) => [...prev, ...data.files]);
                       setIsNewDoc(false);
+                      const savedName = newDocFileName.trim().endsWith(".md") ? newDocFileName.trim() : newDocFileName.trim() + ".md";
+                      setSavedNewDocName(savedName);
                       setSaved(true);
                       setTimeout(() => setSaved(false), 2500);
-                      setActiveTab("files");
+                      
+                      // ファイルタブに戻らずエディタタブのままヘッダーを更新
+                      // setActiveTab("files") を削除
                     }
                   } finally {
                     setSaving(false);
