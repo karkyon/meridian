@@ -597,14 +597,19 @@ function WordViewer({ content, fileName }: { content: string; fileName?: string 
   const isHtml = /<[a-z]/i.test(content);
   return (
     <div className="word-preview-wrap h-full">
+      {/* トップバー */}
       <div className="word-preview-topbar">
         <span className="word-preview-topbar-title">{fileName ?? "Word Document"}</span>
         <span className="word-preview-topbar-badge">DOCX</span>
+        <span className="ml-auto text-[10px] text-slate-400 bg-amber-50 border border-amber-200 text-amber-600 px-2 py-0.5 rounded">
+          Word文書（読み取り専用）
+        </span>
       </div>
+      {/* A4ページ風 */}
       <div className="word-preview-page-wrap">
         <div className="word-preview-page">
           {isHtml ? (
-            <div className="word-preview" dangerouslySetInnerHTML={{ __html: content }} />
+            <div className="word-preview" dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }} />
           ) : (
             <pre className="word-preview-plain">{content}</pre>
           )}

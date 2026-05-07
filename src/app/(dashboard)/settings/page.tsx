@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import TopBar from "@/components/layout/TopBar";
 import SettingsClient from "@/components/settings/SettingsClient";
+import TopBar from "@/components/layout/TopBar";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -12,16 +13,21 @@ export default async function SettingsPage() {
   const settings = await prisma.settings.findFirst();
 
   return (
-    <SettingsClient
-      hasApiKey={!!settings?.claudeApiKeyEncrypted}
-      hasGithubPat={!!settings?.githubPatEncrypted}  // ← 追加
-      initial={{
-        weekly_summary_day: settings?.weeklySummaryDay ?? "monday",
-        focus_mode_count: settings?.focusModeCount ?? 3,
-        session_timeout_hours: settings?.sessionTimeoutHours ?? 8,
-        github_auto_sync: settings?.githubAutoSync ?? false,       // ← 追加
-        github_cache_hours: settings?.githubCacheHours ?? 6,       // ← 追加
-      }}
-    />
+    <>
+      <TopBar title="設定" />
+      <main className="flex-1 p-6 max-w-3xl">
+        <SettingsClient
+          hasApiKey={!!settings?.claudeApiKeyEncrypted}
+          hasGithubPat={!!settings?.githubPatEncrypted}
+          initial={{
+            weekly_summary_day: settings?.weeklySummaryDay ?? "monday",
+            focus_mode_count: settings?.focusModeCount ?? 3,
+            session_timeout_hours: settings?.sessionTimeoutHours ?? 8,
+            github_auto_sync: settings?.githubAutoSync ?? false,
+            github_cache_hours: settings?.githubCacheHours ?? 6,
+          }}
+        />
+      </main>
+    </>
   );
 }

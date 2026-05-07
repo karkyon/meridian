@@ -125,16 +125,29 @@ function DocCard({
                     f.completeness >= 50 ? "text-[#1D6FA4]" :
                     f.completeness >= 20 ? "text-amber-400" : "text-slate-300";
                   return (
-                    <div key={i} className="flex items-center gap-1.5 min-w-0">
-                      <p className="text-[11px] text-slate-400 truncate leading-tight flex-1">
-                        📄 {f.originalName}
-                      </p>
-                      <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">
-                        v{f.version}
-                      </span>
-                      <span className={`text-[10px] font-medium whitespace-nowrap shrink-0 ${fBarColor}`}>
-                        {f.completeness}%
-                      </span>
+                  <div key={i} className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-[11px] text-slate-400 truncate leading-tight flex-1">
+                          📄 {f.originalName}
+                        </p>
+                        <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">
+                          v{f.version}
+                        </span>
+                        <span className={`text-[10px] font-medium whitespace-nowrap shrink-0 ${fBarColor}`}>
+                          {f.completeness}%
+                        </span>
+                      </div>
+                      {/* ファイル個別インジケータ */}
+                      <div className="h-0.5 bg-slate-100 rounded-full overflow-hidden mt-0.5">
+                        <div
+                          className={`h-full rounded-full ${
+                            f.completeness >= 80 ? "bg-emerald-400" :
+                            f.completeness >= 50 ? "bg-[#1D6FA4]" :
+                            f.completeness >= 20 ? "bg-amber-400" : "bg-slate-200"
+                          }`}
+                          style={{ width: `${f.completeness}%` }}
+                        />
+                      </div>
                     </div>
                   );
                 })}
@@ -197,7 +210,7 @@ export default function ProjectDetailClient({
   const hasRepo = !!project.repositoryUrl;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 px-6 pb-6">
       {/* タブ */}
       <div className="flex items-center gap-0 border-b border-slate-200 overflow-x-auto">
         {/* ドキュメントタブ */}
