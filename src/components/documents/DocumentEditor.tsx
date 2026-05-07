@@ -163,9 +163,6 @@ function mdToHtml(md: string): string {
     // テーブル以外の行でテーブルを閉じる
     closeTable();
 
-    // ── 空行 → リストを閉じる ──
-    if (trimmed === "") { closeLists(); out.push(""); continue; }
-
     // ── 水平線 ──
     if (/^-{3,}$/.test(trimmed)) { closeLists(); out.push("<hr>"); continue; }
 
