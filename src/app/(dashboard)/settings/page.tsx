@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import TopBar from "@/components/layout/TopBar";
 import SettingsClient from "@/components/settings/SettingsClient";
-import TopBar from "@/components/layout/TopBar";
 
 export default async function SettingsPage() {
   const session = await auth();

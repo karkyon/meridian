@@ -93,39 +93,26 @@ function DocCard({
               )}
             </div>
 
-            {/* バージョン・件数・完成度 */}
+            {/* ファイル件数のみ表示 */}
             <div className="flex items-center gap-3 text-xs text-slate-400 mb-2">
-              <span className={hasFiles ? "text-slate-500" : "text-slate-300"}>
-                {hasFiles ? `v${version}` : "—"}
-              </span>
               <span>📁 {fileCount}件</span>
-              <span className={`ml-auto font-medium ${hasFiles ? "text-slate-500" : "text-slate-300"}`}>
-                {hasFiles ? `${completeness}%` : "—"}
-              </span>
-            </div>
-
-            {/* 完成度バー */}
-            <div className="h-1 bg-slate-100 rounded-full overflow-hidden mb-2">
-              {hasFiles ? (
-                <div
-                  className={`h-full rounded-full transition-all ${barColor}`}
-                  style={{ width: `${completeness}%` }}
-                />
-              ) : (
-                <div className="h-full w-full bg-slate-100 rounded-full" />
-              )}
             </div>
 
             {/* ファイル名リスト */}
             {hasFiles && displayFiles.length > 0 && (
               <div className="space-y-0.5 mt-1">
                 {displayFiles.map((f, i) => {
-                  const fBarColor =
-                    f.completeness >= 80 ? "text-emerald-500" :
-                    f.completeness >= 50 ? "text-[#1D6FA4]" :
-                    f.completeness >= 20 ? "text-amber-400" : "text-slate-300";
+                  const pct = f.completeness ?? 0;
+                  const fTextColor =
+                    pct >= 80 ? "text-emerald-500" :
+                    pct >= 50 ? "text-[#1D6FA4]" :
+                    pct >= 20 ? "text-amber-400" : "text-slate-300";
+                  const fBarBg =
+                    pct >= 80 ? "bg-emerald-400" :
+                    pct >= 50 ? "bg-[#1D6FA4]" :
+                    pct >= 20 ? "bg-amber-400" : "bg-slate-200";
                   return (
-                  <div key={i} className="min-w-0">
+                    <div key={i} className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="text-[11px] text-slate-400 truncate leading-tight flex-1">
                           📄 {f.originalName}
@@ -133,19 +120,15 @@ function DocCard({
                         <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">
                           v{f.version}
                         </span>
-                        <span className={`text-[10px] font-medium whitespace-nowrap shrink-0 ${fBarColor}`}>
-                          {f.completeness}%
+                        <span className={`text-[10px] font-medium whitespace-nowrap shrink-0 ${fTextColor}`}>
+                          {pct}%
                         </span>
                       </div>
-                      {/* ファイル個別インジケータ */}
-                      <div className="h-0.5 bg-slate-100 rounded-full overflow-hidden mt-0.5">
+                      {/* ファイル個別インジケータバー */}
+                      <div className="h-1 bg-slate-100 rounded-full overflow-hidden mt-0.5 mb-0.5">
                         <div
-                          className={`h-full rounded-full ${
-                            f.completeness >= 80 ? "bg-emerald-400" :
-                            f.completeness >= 50 ? "bg-[#1D6FA4]" :
-                            f.completeness >= 20 ? "bg-amber-400" : "bg-slate-200"
-                          }`}
-                          style={{ width: `${f.completeness}%` }}
+                          className={`h-full rounded-full transition-all ${fBarBg}`}
+                          style={{ width: `${pct}%` }}
                         />
                       </div>
                     </div>
@@ -211,66 +194,6 @@ export default function ProjectDetailClient({
 
   return (
     <div className="flex flex-col gap-4 px-6 pb-6">
-      {/* タブ */}
-      <div className="flex items-center gap-0 border-b border-slate-200 overflow-x-auto">
-        {/* ドキュメントタブ */}
-        <button
-          onClick={() => setActiveTab("docs")}
-          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === "docs"
-              ? "border-[#1D6FA4] text-[#1D6FA4] font-medium"
-              : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <FileText size={14} />
-          ドキュメント
-        </button>
-
-        {/* 添付資料タブ */}
-        <button
-          onClick={() => setActiveTab("attachments")}
-          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors whitespace-nowrap ${
-            activeTab === "attachments"
-              ? "border-[#1D6FA4] text-[#1D6FA4] font-medium"
-              : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <Paperclip size={14} />
-          添付資料
-          {attachmentCount > 0 && (
-            <span className="ml-1 text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-full">
-              {attachmentCount}
-            </span>
-          )}
-        </button>
-
-        {/* GitHub タブ（NEW） */}
-        <Link
-          href={`/projects/${project.id}/github`}
-          className={`flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors whitespace-nowrap ${
-            hasRepo
-              ? "border-transparent text-slate-400 hover:text-[#1D6FA4] hover:border-[#1D6FA4]/40"
-              : "border-transparent text-slate-300 cursor-default pointer-events-none"
-          }`}
-          title={hasRepo ? undefined : "プロジェクト編集でリポジトリURLを設定してください"}
-        >
-          <GitHubIcon className="w-3.5 h-3.5" />
-          GitHub
-          {!hasRepo && (
-            <span className="text-[10px] text-slate-300 ml-0.5">未設定</span>
-          )}
-        </Link>
-
-        {/* AI進捗推定タブ（Admin・NEW） */}
-        {role === "admin" && (
-          <Link
-            href={`/projects/${project.id}/ai-progress`}
-            className="flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 border-transparent text-slate-400 hover:text-emerald-600 hover:border-emerald-500/40 transition-colors whitespace-nowrap"
-          >
-            🤖 AI進捗推定
-          </Link>
-        )}
-      </div>
 
       {/* ドキュメントタブ コンテンツ */}
       {activeTab === "docs" && (

@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import GitHubTabClient from "@/components/projects/GitHubTabClient";
-import TopBar from "@/components/layout/TopBar";
 
 type Props = { params: { id: string } };
 
@@ -23,16 +22,13 @@ export default async function ProjectGitHubPage({ params }: Props) {
   const hasGithubPat = !!settings?.githubPatEncrypted;
 
   return (
-      <>
-        <TopBar title={`${project.name} — GitHub`} />
-        <main className="flex-1 p-6">
-          <GitHubTabClient
-            projectId={params.id}
-            projectName={project.name}
-            repositoryUrl={project.repositoryUrl ?? ""}
-            hasGithubPat={hasGithubPat}
-          />
-        </main>
-      </>
+    <div className="flex-1 p-6">
+      <GitHubTabClient
+        projectId={params.id}
+        projectName={project.name}
+        repositoryUrl={project.repositoryUrl ?? ""}
+        hasGithubPat={hasGithubPat}
+      />
+    </div>
   );
 }

@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import AiProgressClient from "@/components/projects/AiProgressClient";
-import TopBar from "@/components/layout/TopBar";
 
 type Props = { params: { id: string } };
 
@@ -24,16 +23,13 @@ export default async function AiProgressPage({ params }: Props) {
   });
 
   return (
-    <>
-      <TopBar title={`${project.name} — AI進捗推定`} />
-      <main className="flex-1 p-6">
-        <AiProgressClient
-          projectId={params.id}
-          projectName={project.name}
-          repositoryUrl={project.repositoryUrl ?? ""}
-          hasGithubPat={!!settings?.githubPatEncrypted}
-        />
-      </main>
-    </>
+    <div className="flex-1 p-6">
+      <AiProgressClient
+        projectId={params.id}
+        projectName={project.name}
+        repositoryUrl={project.repositoryUrl ?? ""}
+        hasGithubPat={!!settings?.githubPatEncrypted}
+      />
+    </div>
   );
 }
