@@ -12,7 +12,7 @@ import {
 // ============================================================
 // 型定義
 // ============================================================
-type FileType = "md" | "docx" | "doc" | "pdf" | "html";
+type FileType = "md" | "markdown" | "docx" | "doc" | "word" | "pdf" | "html" | "htm";
 
 interface DocFile {
   id: string;
@@ -609,6 +609,7 @@ interface FilePreviewProps {
 }
 
 function FilePreviewScreen({ file, projectId, docKey, isCustom, allFiles, onClose, onFilesChange }: FilePreviewProps) {
+  const router = useRouter();
   const [previewContent, setPreviewContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [editContent, setEditContent] = useState<string>("");
@@ -617,6 +618,39 @@ function FilePreviewScreen({ file, projectId, docKey, isCustom, allFiles, onClos
   const [saved, setSaved] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  // 既存ファイル編集の未保存離脱確認
+  const [showFileDirtyDialog, setShowFileDirtyDialog] = useState(false);
+  const [filePendingHref, setFilePendingHref] = useState<string | null>(null);
+  const [pendingClose, setPendingClose] = useState(false);
+
+  // ブラウザ閉じ・リロード離脱確認
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "編集中のファイルが保存されていません。ページを離れますか？";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
+  // サイドバー・ヘッダーリンクの離脱確認
+  useEffect(() => {
+    if (!isDirty) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest("a[href]") as HTMLAnchorElement | null;
+      if (!target) return;
+      const href = target.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setFilePendingHref(href);
+      setShowFileDirtyDialog(true);
+    };
+    document.addEventListener("click", handleClick, true);
+    return () => document.removeEventListener("click", handleClick, true);
+  }, [isDirty]);
 
   const baseUrl = isCustom
     ? `/api/projects/${projectId}/custom-docs/${docKey}/files/${file.id}`
@@ -693,7 +727,17 @@ function FilePreviewScreen({ file, projectId, docKey, isCustom, allFiles, onClos
     <div className="flex flex-col h-full bg-slate-50">
       {/* ヘッダー */}
       <div className="file-preview-header">
-        <button onClick={onClose} className="file-preview-back-btn">
+        <button
+          onClick={() => {
+            if (isDirty) {
+              setPendingClose(true);
+              setShowFileDirtyDialog(true);
+            } else {
+              onClose();
+            }
+          }}
+          className="file-preview-back-btn"
+        >
           <ChevronLeft size={16} />
           <span>戻る</span>
         </button>
@@ -804,6 +848,60 @@ function FilePreviewScreen({ file, projectId, docKey, isCustom, allFiles, onClos
           </div>
         )}
       </div>
+
+      {/* 既存ファイル編集：未保存離脱確認ダイアログ */}
+      {showFileDirtyDialog && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xl p-6 w-[400px]">
+            <h3 className="text-sm font-semibold text-navy mb-2">
+              ⚠️ 未保存の変更があります
+            </h3>
+            <p className="text-sm text-slate-600 mb-5">
+              編集中の内容は保存されていません。<br />
+              このまま離れると変更内容が失われます。
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowFileDirtyDialog(false);
+                  setFilePendingHref(null);
+                  setPendingClose(false);
+                }}
+                className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                編集を続ける
+              </button>
+              <button
+                onClick={() => {
+                  setShowFileDirtyDialog(false);
+                  setFilePendingHref(null);
+                  setPendingClose(false);
+                  setShowSaveDialog(true);
+                }}
+                className="px-3 py-1.5 text-sm rounded-lg border border-blue-300 text-blue-600 hover:bg-blue-50"
+              >
+                保存する
+              </button>
+              <button
+                onClick={() => {
+                  setShowFileDirtyDialog(false);
+                  setIsDirty(false);
+                  if (filePendingHref) {
+                    router.push(filePendingHref);
+                    setFilePendingHref(null);
+                  } else if (pendingClose) {
+                    setPendingClose(false);
+                    onClose();
+                  }
+                }}
+                className="px-3 py-1.5 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600"
+              >
+                破棄して離れる
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 保存ダイアログ */}
       {showSaveDialog && (
@@ -1059,7 +1157,10 @@ export function DocumentEditor(props: Props) {
   // 未保存離脱確認ダイアログ
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
 
-  // ページ離脱時の確認（新規作成中かつ未保存のみ）
+  // 離脱先URLを一時保存（確認後に遷移するため）
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  // ブラウザ閉じ・リロード・URLバー直接入力の離脱確認
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isNewDoc && isNewDocDirty) {
@@ -1069,6 +1170,26 @@ export function DocumentEditor(props: Props) {
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isNewDoc, isNewDocDirty]);
+
+  // Next.js クライアントサイドナビゲーション（リンク・サイドバー等）の離脱確認
+  useEffect(() => {
+    if (!isNewDoc || !isNewDocDirty) return;
+
+    const handleClick = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement).closest("a[href]") as HTMLAnchorElement | null;
+      if (!target) return;
+      const href = target.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+      // 同一ページ内アンカーは除外
+      e.preventDefault();
+      e.stopPropagation();
+      setPendingHref(href);
+      setShowUnsavedDialog(true);
+    };
+
+    document.addEventListener("click", handleClick, true);
+    return () => document.removeEventListener("click", handleClick, true);
   }, [isNewDoc, isNewDocDirty]);
 
   const [completeness, setCompleteness] = useState(props.initialCompleteness || 0);
@@ -1294,7 +1415,7 @@ export function DocumentEditor(props: Props) {
         )}
       </div>
 
-{/* ─── コンテンツ ─── */}
+      {/* ─── コンテンツ ─── */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {activeTab === "editor" && isNewDoc ? (
           <TextEditor
@@ -1313,7 +1434,7 @@ export function DocumentEditor(props: Props) {
           />
         )}
       </div>
-{/* 未保存離脱確認ダイアログ */}
+      {/* 未保存離脱確認ダイアログ */}
       {showUnsavedDialog && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-xl border border-slate-200 shadow-xl p-6 w-[400px]">
@@ -1326,7 +1447,10 @@ export function DocumentEditor(props: Props) {
             </p>
             <div className="flex justify-end gap-2">
               <button
-                onClick={() => setShowUnsavedDialog(false)}
+                onClick={() => {
+                  setShowUnsavedDialog(false);
+                  setPendingHref(null);
+                }}
                 className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
               >
                 編集を続ける
@@ -1334,6 +1458,7 @@ export function DocumentEditor(props: Props) {
               <button
                 onClick={() => {
                   setShowUnsavedDialog(false);
+                  setPendingHref(null);
                   setShowNewDocSaveDialog(true);
                 }}
                 className="px-3 py-1.5 text-sm rounded-lg border border-blue-300 text-blue-600 hover:bg-blue-50"
@@ -1346,7 +1471,14 @@ export function DocumentEditor(props: Props) {
                   setIsNewDoc(false);
                   setIsNewDocDirty(false);
                   setContent("");
-                  setActiveTab("files");
+                  if (pendingHref) {
+                    // 外部リンク（サイドバー等）への遷移
+                    router.push(pendingHref);
+                    setPendingHref(null);
+                  } else {
+                    // ファイルタブへの切り替え
+                    setActiveTab("files");
+                  }
                 }}
                 className="px-3 py-1.5 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600"
               >
