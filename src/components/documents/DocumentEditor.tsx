@@ -944,8 +944,12 @@ export function DocumentEditor(props: Props) {
   const [activeTab, setActiveTab] = useState<"editor" | "files">(
     initialFiles.length > 0 ? "files" : "editor"
   );
-
+  // 新規ドキュメント作成モード（true = 初回保存時にファイル名入力要求）
+  const [isNewDoc, setIsNewDoc] = useState(false);
+  const [newDocFileName, setNewDocFileName] = useState("");
+  const [showNewDocSaveDialog, setShowNewDocSaveDialog] = useState(false);
   const [content, setContent] = useState(props.initialContent || "");
+
   const [completeness, setCompleteness] = useState(props.initialCompleteness || 0);
   const [files, setFiles] = useState<DocFile[]>(initialFiles);
   const [saving, setSaving] = useState(false);
@@ -1020,8 +1024,14 @@ export function DocumentEditor(props: Props) {
       {activeTab === "editor" && (
         <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
           <div className="flex-1 min-w-0">
-            <h1 className="text-base font-semibold text-navy truncate">{title}</h1>
-            <p className="text-xs text-slate-400">v{version}</p>
+            {isNewDoc ? (
+              <h1 className="text-base font-semibold text-slate-400 italic">新規ドキュメント（未保存）</h1>
+            ) : (
+              <>
+                <h1 className="text-base font-semibold text-navy truncate">{title}</h1>
+                <p className="text-xs text-slate-400">v{version}</p>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400 whitespace-nowrap">完成度</span>
@@ -1034,7 +1044,7 @@ export function DocumentEditor(props: Props) {
             <span className="text-xs font-medium text-navy w-9 text-right">{completeness}%</span>
           </div>
           <button
-            onClick={handleSave}
+            onClick={isNewDoc ? () => setShowNewDocSaveDialog(true) : handleSave}
             disabled={saving}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               saved
@@ -1086,7 +1096,7 @@ export function DocumentEditor(props: Props) {
         {/* ファイルタブ表示中：新規ドキュメント作成ボタン */}
         {activeTab === "files" && (
           <button
-            onClick={() => { setContent(""); setActiveTab("editor"); }}
+            onClick={() => { setContent(""); setIsNewDoc(true); setNewDocFileName(""); setActiveTab("editor"); }}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors mr-1"
           >
             <FileText size={13} />
@@ -1175,6 +1185,63 @@ export function DocumentEditor(props: Props) {
           />
         )}
       </div>
+{/* 新規ドキュメント保存ダイアログ */}
+      {showNewDocSaveDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xl p-6 w-[420px]">
+            <h3 className="text-sm font-semibold text-navy mb-1 flex items-center gap-2">
+              <Save size={15} /> 新規ドキュメントを保存
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">保存するファイル名を入力してください（拡張子 .md を付けてください）。</p>
+            <input
+              type="text"
+              value={newDocFileName}
+              onChange={(e) => setNewDocFileName(e.target.value)}
+              placeholder="例: new_document.md"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mb-2 outline-none focus:border-blue-400"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setShowNewDocSaveDialog(false)}
+                className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+              >
+                キャンセル
+              </button>
+              <button
+                disabled={!newDocFileName.trim() || saving}
+                onClick={async () => {
+                  setShowNewDocSaveDialog(false);
+                  setSaving(true);
+                  // ファイルとしてアップロード
+                  const uploadUrl = isCustom
+                    ? `/api/projects/${projectId}/custom-docs/${docKey}/upload`
+                    : `/api/projects/${projectId}/documents/${docKey}/upload`;
+                  try {
+                    const blob = new Blob([content], { type: "text/markdown" });
+                    const formData = new FormData();
+                    formData.append("file", blob, newDocFileName.trim().endsWith(".md") ? newDocFileName.trim() : newDocFileName.trim() + ".md");
+                    const res = await fetch(uploadUrl, { method: "POST", body: formData });
+                    const data = await res.json();
+                    if (data.files) {
+                      setFiles((prev) => [...prev, ...data.files]);
+                      setIsNewDoc(false);
+                      setSaved(true);
+                      setTimeout(() => setSaved(false), 2500);
+                      setActiveTab("files");
+                    }
+                  } finally {
+                    setSaving(false);
+                  }
+                }}
+                className="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40"
+              >
+                保存する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
