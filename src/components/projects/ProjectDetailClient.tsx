@@ -28,7 +28,7 @@ interface StandardDoc {
   version: number;
   fileCount: number;
   aiGenerated: boolean;
-  files?: { originalName: string }[];
+  files?: { originalName: string; completeness: number; version: number }[];
 }
 
 interface CustomDocType {
@@ -63,7 +63,7 @@ function DocCard({
   icon, label, completeness, version, fileCount, files, href, exists, aiGenerated,
 }: {
   icon: string; label: string; completeness: number; version: number;
-  fileCount: number; files?: { originalName: string }[];
+  fileCount: number; files?: { originalName: string; completeness: number; version: number }[];
   href: string; exists: boolean; aiGenerated?: boolean;
 }) {
   const hasFiles = fileCount > 0;
@@ -119,11 +119,25 @@ function DocCard({
             {/* ファイル名リスト（1件以上の場合のみ） */}
             {hasFiles && displayFiles.length > 0 && (
               <div className="space-y-0.5 mt-1">
-                {displayFiles.map((f, i) => (
-                  <p key={i} className="text-[11px] text-slate-400 truncate leading-tight">
-                    📄 {f.originalName}
-                  </p>
-                ))}
+                {displayFiles.map((f, i) => {
+                  const fBarColor =
+                    f.completeness >= 80 ? "text-emerald-500" :
+                    f.completeness >= 50 ? "text-[#1D6FA4]" :
+                    f.completeness >= 20 ? "text-amber-400" : "text-slate-300";
+                  return (
+                    <div key={i} className="flex items-center gap-1.5 min-w-0">
+                      <p className="text-[11px] text-slate-400 truncate leading-tight flex-1">
+                        📄 {f.originalName}
+                      </p>
+                      <span className="text-[10px] text-slate-400 whitespace-nowrap shrink-0">
+                        v{f.version}
+                      </span>
+                      <span className={`text-[10px] font-medium whitespace-nowrap shrink-0 ${fBarColor}`}>
+                        {f.completeness}%
+                      </span>
+                    </div>
+                  );
+                })}
                 {extraCount > 0 && (
                   <p className="text-[11px] text-slate-300 leading-tight">
                     + {extraCount}件

@@ -18,7 +18,7 @@ export default async function ProjectDetailPage({ params }: Params) {
           id: true, docType: true, content: true,
           completeness: true, aiGenerated: true, version: true, updatedAt: true,
           _count: { select: { files: true } },
-          files: { select: { originalName: true }, orderBy: { createdAt: "desc" } },
+          files: { select: { originalName: true, completeness: true, version: true }, orderBy: { createdAt: "desc" } },
         },
       },
       wbsPhases: {
@@ -56,7 +56,7 @@ export default async function ProjectDetailPage({ params }: Params) {
     version: d.version,
     fileCount: d._count?.files ?? 0,
     aiGenerated: d.aiGenerated,
-    files: (d.files ?? []).map((f: any) => ({ originalName: f.originalName })),
+    files: (d.files ?? []).map((f: any) => ({ originalName: f.originalName, completeness: f.completeness, version: f.version })),
   }));
 
   const globalCustomTypes = await prisma.customDocType.findMany({

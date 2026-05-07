@@ -470,18 +470,20 @@ model CustomDocument {
 }
 
 model CustomDocumentFile {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customDocId   String   @map("custom_doc_id") @db.Uuid
-  filename      String   @db.VarChar(255)
-  originalName  String   @map("original_name") @db.VarChar(255)
-  fileType      String   @default("other") @map("file_type") @db.VarChar(20)
-  mimeType      String   @map("mime_type") @db.VarChar(100)
-  fileSize      Int      @map("file_size")
-  storagePath   String   @map("storage_path") @db.VarChar(500)
-  extractedText String?  @map("extracted_text") @db.Text
-  isEditable    Boolean  @default(false) @map("is_editable")
-  createdBy     String?  @map("created_by") @db.Uuid
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customDocId  String   @map("custom_doc_id") @db.Uuid
+  filename     String
+  originalName String   @map("original_name")
+  fileType     String   @map("file_type")
+  mimeType     String   @map("mime_type")
+  fileSize     Int      @map("file_size")
+  storagePath  String   @map("storage_path")
+  extractedText String? @map("extracted_text")
+  isEditable   Boolean  @default(false) @map("is_editable")
+  completeness Int      @default(0)
+  version      Int      @default(1)
+  createdBy    String   @map("created_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
 
   customDoc CustomDocument @relation(fields: [customDocId], references: [id], onDelete: Cascade)
   uploader  User?          @relation("CustomDocFileCreatedBy", fields: [createdBy], references: [id])
@@ -507,16 +509,18 @@ model CustomDocumentVersion {
 model DocumentFile {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   documentId   String   @map("document_id") @db.Uuid
-  filename     String   @db.VarChar(255)
-  originalName String   @map("original_name") @db.VarChar(255)
-  fileType     String   @default("other") @map("file_type") @db.VarChar(20)
-  mimeType     String   @map("mime_type") @db.VarChar(100)
+  filename     String
+  originalName String   @map("original_name")
+  fileType     String   @map("file_type")
+  mimeType     String   @map("mime_type")
   fileSize     Int      @map("file_size")
-  storagePath  String   @map("storage_path") @db.VarChar(500)
-  extractedText String? @map("extracted_text") @db.Text
+  storagePath  String   @map("storage_path")
+  extractedText String? @map("extracted_text")
   isEditable   Boolean  @default(false) @map("is_editable")
-  createdBy    String?  @map("created_by") @db.Uuid
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  completeness Int      @default(0)
+  version      Int      @default(1)
+  createdBy    String   @map("created_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   uploader User?    @relation("DocFileCreatedBy", fields: [createdBy], references: [id])
