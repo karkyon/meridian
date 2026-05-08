@@ -117,6 +117,7 @@ enum AuditAction {
   SESSION_REVOKE
   SETTINGS_UPDATE
   API_KEY_UPDATE
+  ANALYSIS_RUN
   @@map("audit_action")
 }
 
@@ -235,6 +236,7 @@ model Project {
   projectCustomDocTypes ProjectCustomDocType[]
   customDocuments       CustomDocument[]
   techStacks            ProjectTechStack[]
+  analyses              ProjectAnalysis[]
 
   @@index([status], map: "idx_projects_status")
   @@index([priorityOrder], map: "idx_projects_priority_order")
@@ -544,6 +546,122 @@ model CustomDocumentVersion {
 
   @@index([customDocId, version], map: "idx_custom_document_versions_doc")
   @@map("custom_document_versions")
+}
+
+// ============================================================
+// システム総合分析（Project Analysis）
+// ============================================================
+
+enum AnalysisStatus {
+  pending     // 分析待ち
+  running     // 分析中
+  completed   // 完了
+  failed      // 失敗
+  @@map("analysis_status")
+}
+
+enum IssueSeverity {
+  critical  // 重大（即対応必須）
+  high      // 高（今sprint対応）
+  medium    // 中（近日対応）
+  low       // 低（余裕があれば）
+  @@map("issue_severity")
+}
+
+enum IssueCategory {
+  code_doc_mismatch     // コード↔ドキュメント乖離
+  tech_stack_mismatch   // 技術スタック不整合
+  missing_implementation // 未実装機能
+  db_inconsistency      // DB設計不整合
+  security_concern      // セキュリティ懸念
+  tech_debt             // 技術的負債
+  missing_test          // テスト不足
+  other                 // その他
+  @@map("issue_category")
+}
+
+// 分析セッション（1回の総合分析 = 1レコード）
+model ProjectAnalysis {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId        String         @map("project_id") @db.Uuid
+  status           AnalysisStatus @default(pending)
+
+  // 分析に使用した情報のスナップショット（何を元に分析したか記録）
+  githubCommitSha  String?        @map("github_commit_sha") @db.VarChar(40)
+  docVersions      Json?          @map("doc_versions") @db.JsonB    // {planning: 3, requirements: 2, ...}
+  techStackCount   Int            @default(0) @map("tech_stack_count")
+
+  // 分析結果サマリー
+  overallScore     Int?           @map("overall_score")             // 0〜100 総合スコア
+  summary          String?        @db.Text                          // 総評テキスト（Markdown）
+  strengths        Json?          @db.JsonB                         // ["強み1", "強み2", ...]
+  immediateActions Json?          @map("immediate_actions") @db.JsonB // 今すぐやるべきこと[]
+
+  // 統計
+  issueCount       Int            @default(0) @map("issue_count")
+  criticalCount    Int            @default(0) @map("critical_count")
+  suggestedTaskCount Int          @default(0) @map("suggested_task_count")
+
+  // エラー情報
+  errorMessage     String?        @map("error_message") @db.Text
+
+  // タイムスタンプ
+  startedAt        DateTime?      @map("started_at") @db.Timestamptz
+  completedAt      DateTime?      @map("completed_at") @db.Timestamptz
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issues           AnalysisIssue[]
+  suggestedTasks   AnalysisSuggestedTask[]
+
+  @@index([projectId, createdAt(sort: Desc)], map: "idx_project_analyses_project_date")
+  @@index([status], map: "idx_project_analyses_status")
+  @@map("project_analyses")
+}
+
+// 分析で検出された課題・問題点
+model AnalysisIssue {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  analysisId   String        @map("analysis_id") @db.Uuid
+  severity     IssueSeverity
+  category     IssueCategory
+  title        String        @db.VarChar(300)
+  description  String        @db.Text                // 問題の詳細説明
+  location     String?       @db.VarChar(500)        // 該当ファイル・ドキュメント・DB等
+  suggestion   String?       @db.Text                // 推奨対処法
+  resolved     Boolean       @default(false)         // 解決済みフラグ（手動）
+  resolvedAt   DateTime?     @map("resolved_at") @db.Timestamptz
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  analysis     ProjectAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId, severity], map: "idx_analysis_issues_analysis_severity")
+  @@index([resolved], map: "idx_analysis_issues_resolved")
+  @@map("analysis_issues")
+}
+
+// 分析から提案されたWBSタスク候補
+model AnalysisSuggestedTask {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  analysisId   String       @map("analysis_id") @db.Uuid
+  title        String       @db.VarChar(500)
+  description  String?      @db.Text
+  priority     TaskPriority @default(mid)
+  phaseName    String       @map("phase_name") @db.VarChar(255) // 配置推奨フェーズ名
+  estimatedHours Decimal?   @map("estimated_hours") @db.Decimal(5, 1)
+  issueRef     String?      @map("issue_ref") @db.Text         // 関連するIssueのtitle参照
+
+  // WBSへの取り込み状態
+  imported     Boolean      @default(false)
+  importedTaskId String?    @map("imported_task_id") @db.Uuid  // 取り込み先WbsTask.id
+  importedAt   DateTime?    @map("imported_at") @db.Timestamptz
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  analysis     ProjectAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId], map: "idx_analysis_suggested_tasks_analysis")
+  @@index([imported], map: "idx_analysis_suggested_tasks_imported")
+  @@map("analysis_suggested_tasks")
 }
 
 model DocumentFile {

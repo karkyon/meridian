@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Paperclip, Info, Layers } from "lucide-react";
+import { FileText, Paperclip, Info, Layers, FlaskConical } from "lucide-react";
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
@@ -28,10 +28,12 @@ export default function ProjectTabNav({
   // ── アクティブ判定 ──────────────────────────────────────────
   const isOverview  = pathname.startsWith(`${base}/overview`);
   const isTechStack = pathname.startsWith(`${base}/tech-stack`);
+  const isAnalysis  = pathname.startsWith(`${base}/analysis`);
 
   const isDoc =
     !isOverview &&
     !isTechStack &&
+    !isAnalysis &&
     (
       pathname === base ||
       pathname.startsWith(`${base}/documents`) ||
@@ -97,6 +99,14 @@ export default function ProjectTabNav({
       {role === "admin" && (
         <Link href={`${base}/ai-progress`} className={tabClass(isAi)}>
           🤖 AI進捗推定
+        </Link>
+      )}
+
+      {/* 総合分析（Admin のみ） */}
+      {role === "admin" && (
+        <Link href={`${base}/analysis`} className={tabClass(isAnalysis)}>
+          <FlaskConical size={14} />
+          総合分析
         </Link>
       )}
 
