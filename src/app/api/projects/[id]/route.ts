@@ -87,6 +87,24 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (data.category !== undefined) updateData.category = data.category;
     if (data.tech_stack !== undefined) updateData.techStack = data.tech_stack;
     if (data.repository_url !== undefined) updateData.repositoryUrl = data.repository_url || null;
+    if (Array.isArray(body.tech_stack_items)) {
+      await prisma.projectTechStack.deleteMany({ where: { projectId: params.id } });
+      if (body.tech_stack_items.length > 0) {
+        await prisma.projectTechStack.createMany({
+          data: body.tech_stack_items.map(
+            (t: { name: string; category: string; version?: string; notes?: string }, i: number) => ({
+              projectId: params.id,
+              name:      t.name,
+              category:  t.category ?? "other",
+              version:   t.version ?? null,
+              notes:     t.notes ?? null,
+              sortOrder: i,
+            })
+          ),
+          skipDuplicates: true,
+        });
+      }
+    }
     if (data.notes !== undefined) updateData.notes = data.notes;
     if (data.priority_score !== undefined) updateData.priorityScore = data.priority_score;
 

@@ -58,18 +58,6 @@ export default function ProjectForm({ initial }: ProjectFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  function addTech() {
-    const t = techInput.trim();
-    if (t && !techStack.includes(t) && techStack.length < 50) {
-      setTechStack([...techStack, t]);
-      setTechInput("");
-    }
-  }
-
-  function removeTech(tech: string) {
-    setTechStack(techStack.filter((t: any) => t !== tech));
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);

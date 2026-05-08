@@ -15,9 +15,13 @@ export default async function EditProjectPage({ params }: Params) {
     where: { id: params.id },
     select: {
       id: true, name: true, description: true, status: true,
-      category: true, techStack: true, repositoryUrl: true, notes: true,
+      category: true, repositoryUrl: true, notes: true,
+      techStacks: {                          // ← 追加
+        orderBy: [{ sortOrder: "asc" }],
+      },
     },
   });
+  
   if (!project) notFound();
 
   return (
