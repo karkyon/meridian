@@ -188,7 +188,7 @@ export default function ProjectDetailClient({
   const hasRepo = !!project.repositoryUrl;
 
   return (
-    <div className="flex flex-col gap-4 px-6 pb-6">
+    <div className="flex flex-col gap-4 px-6 pb-6 pt-4">
 
       {/* ドキュメントタブ コンテンツ */}
       {activeTab === "docs" && (

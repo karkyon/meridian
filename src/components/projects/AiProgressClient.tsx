@@ -86,8 +86,8 @@ export default function AiProgressClient({ projectId, projectName, repositoryUrl
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-4">
-      {/* 実行ボタン（右寄せ） */}
-      <div className="flex justify-end">
+      {/* 実行ボタン（中央） */}
+      <div className="flex justify-center">
         <button
           onClick={runAnalysis}
           disabled={loading}

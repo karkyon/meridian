@@ -36,10 +36,7 @@ export default async function CustomDocPage({ params }: Params) {
   });
 
   return (
-    <>
-      <TopBar title={`${project.name} — ${typeInfo.label}`}
-        backHref={`/projects/${params.id}`} backLabel={project.name} />
-      <CustomDocEditor
+    <CustomDocEditor
         projectId={params.id}
         projectName={project.name}
         typeKey={params.key}
