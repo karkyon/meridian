@@ -249,6 +249,7 @@
   transition: background 0.1s;
 }
 
+
 /* ============================================================
    Wordプレビュー
    ============================================================ */
@@ -312,6 +313,11 @@
 
 /* ============================================================
    Wordプレビュー本文
+   mammoth出力構造（ログ確認済み）:
+     タイトル: <p><strong>Meridian</strong></p>
+     h1:       <h1><strong>変更履歴</strong></h1>
+     h2:       <h2><strong>1.1 ...</strong></h2>
+     テーブル: <table><tr><td><p><strong>ヘッダー</strong></p></td>...
    ============================================================ */
 .word-preview {
   font-family: 'DM Sans', 'Noto Sans JP', -apple-system, sans-serif;
@@ -320,33 +326,62 @@
   color: #1e2330;
 }
 
-/* h1 */
-.word-preview h1 {
-  font-size: 2.6rem;
+/* ---- タイトル（最初のp直下のstrong = "Meridian"相当） ---- */
+.word-preview > p:first-child > strong:only-child,
+.word-preview > p:first-of-type > strong:only-child,
+.word-preview > p:first-child > b:only-child,
+.word-preview > p:first-of-type > b:only-child {
+  display: block;
+  font-size: 2.4rem;
   font-weight: 900;
   color: #0b1120;
   letter-spacing: -0.035em;
-  margin: 0 0 1.5rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 3px solid #1A3A5C;
   line-height: 1.15;
+  margin-bottom: 0.25rem;
 }
 
-/* h2 */
+/* ---- h1（「変更履歴」等） ---- */
+.word-preview h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0b1120;
+  letter-spacing: -0.03em;
+  margin: 2rem 0 1rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 3px solid #1A3A5C;
+  line-height: 1.2;
+}
+
+/* h1内のstrongはサイズ継承 */
+.word-preview h1 strong,
+.word-preview h1 b {
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+/* ---- h2（章見出し） ---- */
 .word-preview h2 {
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: #1A3A5C;
-  margin: 2.5rem 0 0.85rem;
-  padding-bottom: 0.45rem;
+  margin: 2.25rem 0 0.8rem;
+  padding-bottom: 0.4rem;
   border-bottom: 2px solid #d1dde8;
   letter-spacing: -0.01em;
   line-height: 1.3;
 }
 
-/* h3 */
+.word-preview h2 strong,
+.word-preview h2 b {
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+/* ---- h3（節見出し） ---- */
 .word-preview h3 {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: #1e293b;
   margin: 1.75rem 0 0.6rem;
@@ -355,7 +390,14 @@
   line-height: 1.4;
 }
 
-/* h4 */
+.word-preview h3 strong,
+.word-preview h3 b {
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+/* ---- h4（小見出し） ---- */
 .word-preview h4 {
   font-size: 0.95rem;
   font-weight: 600;
@@ -365,54 +407,26 @@
   border-left: 2px solid #94a3b8;
 }
 
-/* 通常の段落 */
+.word-preview h4 strong,
+.word-preview h4 b {
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+/* ---- 通常段落 ---- */
 .word-preview p {
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.75rem;
   color: #1e2330;
   line-height: 1.8;
   font-size: 0.9rem;
 }
 
-/* ============================================================
-   【最重要】th / td / li の中にある b・strong・p は
-   絶対にフォントサイズを継承させる。
-   mammoth は td 内コンテンツを <p><b>テキスト</b></p> で出力するため
-   下記ルールで全て上書きリセットする。
-   ============================================================ */
-.word-preview th *,
-.word-preview td * {
-  font-size: inherit !important;
-  color: inherit !important;
-  letter-spacing: normal !important;
-  display: inline !important;
-  line-height: inherit !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: none !important;
-  font-weight: inherit;
-}
-
-/* th 直下の p は block に戻す（inline だと改行されないため） */
-.word-preview th > p,
-.word-preview td > p {
-  display: block !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  font-size: inherit !important;
-  color: inherit !important;
-  line-height: 1.4 !important;
-}
-
-/* th 内の b・strong だけ bold を維持 */
-.word-preview th b,
-.word-preview th strong {
-  font-weight: 700;
-}
-
-/* strong / em の基本スタイル（テーブル外） */
+/* ---- strong / em（テーブル外・見出し外） ---- */
 .word-preview strong { font-weight: 700; color: #0f172a; }
 .word-preview em { font-style: italic; color: #475569; }
 
+/* ---- リスト ---- */
 .word-preview ul, .word-preview ol {
   padding-left: 1.6rem;
   margin: 0.6rem 0 0.9rem;
@@ -429,7 +443,9 @@
 
 /* ============================================================
    Wordプレビュー テーブル
-   thead は濃紺+白文字でヘッダー行を明確に区別
+   ログ確認済み: mammothは全td出力（th/thead なし）
+   enhanceWordHtml() で最初のtrの全tdがstrongを含む場合に
+   class="word-header-row" を付与してヘッダー行を識別する
    ============================================================ */
 .word-preview table {
   width: 100%;
@@ -440,26 +456,24 @@
   table-layout: auto;
 }
 
-.word-preview thead {
-  background: #1A3A5C;
-}
-
-.word-preview th {
-  color: #ffffff;
-  font-weight: 600;
+/* ---- ヘッダー行：薄い青灰色背景＋濃紺テキスト ---- */
+.word-preview tr.word-header-row td {
+  background: #e8edf3 !important;
+  color: #1A3A5C !important;
+  font-weight: 700;
   padding: 0.5rem 0.85rem;
-  text-align: left;
-  font-size: 0.82rem;
-  border-right: 1px solid #2d5280;
-  border-bottom: none;
-  letter-spacing: 0.02em;
-  white-space: normal;
-  line-height: 1.4;
+  border-right: 1px solid #c8d0d8;
+  border-bottom: 2px solid #a8b8c8;
   vertical-align: middle;
+  font-size: 0.83rem;
+  line-height: 1.4;
 }
 
-.word-preview th:last-child { border-right: none; }
+.word-preview tr.word-header-row td:last-child {
+  border-right: none;
+}
 
+/* ---- データ行 ---- */
 .word-preview td {
   padding: 0.42rem 0.85rem;
   border-right: 1px solid #e2e6ea;
@@ -473,12 +487,43 @@
 .word-preview td:last-child { border-right: none; }
 .word-preview tr:last-child td { border-bottom: none; }
 
-/* 偶数行縞模様 */
-.word-preview tbody tr:nth-child(even) td { background: #f5f7f9; }
+/* 偶数行縞模様（ヘッダー行を除く） */
+.word-preview tbody tr:nth-child(even):not(.word-header-row) td { background: #f5f7f9; }
 
-.word-preview tbody tr:hover td {
+.word-preview tbody tr:hover:not(.word-header-row) td {
   background: #eaf2fb;
   transition: background 0.1s;
+}
+
+/* ---- td内の全子要素のfont-sizeを強制継承 ----
+   mammothはtd内を <p><strong>テキスト</strong></p> で出力するため
+   サイズ崩れを防ぐ
+   ---- */
+.word-preview td p,
+.word-preview td strong,
+.word-preview td b,
+.word-preview td em,
+.word-preview td span {
+  font-size: inherit !important;
+  color: inherit !important;
+  letter-spacing: normal !important;
+  line-height: inherit !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: inline !important;
+}
+
+/* pだけblockに戻す */
+.word-preview td > p {
+  display: block !important;
+  margin: 0 !important;
+}
+
+/* ヘッダー行tdのstrongはboldと濃紺を維持 */
+.word-preview tr.word-header-row td strong,
+.word-preview tr.word-header-row td b {
+  font-weight: 700;
+  color: #1A3A5C !important;
 }
 
 /* ============================================================

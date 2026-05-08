@@ -594,35 +594,40 @@ function TextEditor({ value, onChange, language, viewMode, onViewModeChange, onS
 // WORDビューア
 // ============================================================
 /**
- * mammoth.js は <thead> を生成しないことが多い。
- * 最初の <tr> が <th> のみで構成されている場合、その行を <thead> で包む後処理を行う。
+ * mammoth.js はテーブルを全て <td> のみで出力する（<th>/<thead> なし）。
+ * ログ確認済み構造:
+ *   <table><tr><td><p><strong>ヘッダー</strong></p></td>...</tr>
+ *          <tr><td><p>データ</p></td>...</tr></table>
+ *
+ * 判定ロジック：
+ *   最初の <tr> の全 <td> が <strong> または <b> を含む場合
+ *   → その <tr> に class="word-header-row" を付与してヘッダー扱いにする
  */
 function enhanceWordHtml(html: string): string {
-  // <table> ごとに処理
   return html.replace(/<table([^>]*)>([\s\S]*?)<\/table>/gi, (_, attrs, body) => {
-    // 既に <thead> が存在する場合はスキップ
-    if (/<thead/i.test(body)) {
-      return `<table${attrs}>${body}</table>`;
-    }
-    // 最初の <tr>...</tr> を取り出す（ネスト対応のため最長一致は使わず、最初の</tr>まで）
-    const firstTrMatch = body.match(/(<tr(?:\s[^>]*)?>\s*)([\s\S]*?)(<\/tr>)/i);
+    // 最初の <tr>...</tr> を取得
+    const firstTrMatch = body.match(/(<tr(?:\s[^>]*)?>)([\s\S]*?)(<\/tr>)/i);
     if (!firstTrMatch) return `<table${attrs}>${body}</table>`;
 
     const [fullFirstTr, trOpen, trContent, trClose] = firstTrMatch;
-    // <th> のみ（<td> なし）ならヘッダー行
-    const hasTh = /<th[\s>]/i.test(trContent);
-    const hasTd = /<td[\s>]/i.test(trContent);
 
-    if (hasTh && !hasTd) {
-      // 最初の <tr> を <thead><tr>...</tr></thead> で包み、残りを <tbody> で包む
-      const rest = body.replace(fullFirstTr, "");
-      return `<table${attrs}><thead>${trOpen}${trContent}${trClose}</thead><tbody>${rest}</tbody></table>`;
+    // 最初のtrの全tdを取得
+    const tdMatches = trContent.match(/<td[\s\S]*?<\/td>/gi) ?? [];
+    if (tdMatches.length === 0) return `<table${attrs}>${body}</table>`;
+
+    // 全tdが <strong> または <b> を含む場合 → ヘッダー行
+    const allHaveBold = tdMatches.every(
+      (td) => /<strong[\s>]/i.test(td) || /<b[\s>]/i.test(td)
+    );
+
+    if (allHaveBold) {
+      // trOpen に class="word-header-row" を追加
+      const headerTrOpen = trOpen.replace(/^<tr/i, '<tr class="word-header-row"');
+      const newFirstTr = `${headerTrOpen}${trContent}${trClose}`;
+      const newBody = body.replace(fullFirstTr, newFirstTr);
+      return `<table${attrs}>${newBody}</table>`;
     }
-    // <th> と <td> が混在する場合（混合行）もヘッダー扱い
-    if (hasTh) {
-      const rest = body.replace(fullFirstTr, "");
-      return `<table${attrs}><thead>${trOpen}${trContent}${trClose}</thead><tbody>${rest}</tbody></table>`;
-    }
+
     return `<table${attrs}>${body}</table>`;
   });
 }
