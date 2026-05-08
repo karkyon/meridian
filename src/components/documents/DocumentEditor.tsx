@@ -593,15 +593,51 @@ function TextEditor({ value, onChange, language, viewMode, onViewModeChange, onS
 // ============================================================
 // WORDビューア
 // ============================================================
+/**
+ * mammoth.js は <thead> を生成しないことが多い。
+ * 最初の <tr> が <th> のみで構成されている場合、その行を <thead> で包む後処理を行う。
+ */
+function enhanceWordHtml(html: string): string {
+  // <table> ごとに処理
+  return html.replace(/<table([^>]*)>([\s\S]*?)<\/table>/gi, (_, attrs, body) => {
+    // 既に <thead> が存在する場合はスキップ
+    if (/<thead/i.test(body)) {
+      return `<table${attrs}>${body}</table>`;
+    }
+    // 最初の <tr>...</tr> を取り出す
+    const firstTrMatch = body.match(/(<tr[^>]*>)([\s\S]*?)(<\/tr>)/i);
+    if (!firstTrMatch) return `<table${attrs}>${body}</table>`;
+
+    const [fullFirstTr, trOpen, trContent, trClose] = firstTrMatch;
+    // <th> のみ（<td> なし）ならヘッダー行
+    const hasTh = /<th[\s>]/i.test(trContent);
+    const hasTd = /<td[\s>]/i.test(trContent);
+
+    if (hasTh && !hasTd) {
+      // 最初の <tr> を <thead><tr>...</tr></thead> で包み、残りを <tbody> で包む
+      const rest = body.replace(fullFirstTr, "");
+      return `<table${attrs}><thead>${trOpen}${trContent}${trClose}</thead><tbody>${rest}</tbody></table>`;
+    }
+    // <th> と <td> が混在する場合（混合行）もヘッダー扱い
+    if (hasTh) {
+      const rest = body.replace(fullFirstTr, "");
+      return `<table${attrs}><thead>${trOpen}${trContent}${trClose}</thead><tbody>${rest}</tbody></table>`;
+    }
+    return `<table${attrs}>${body}</table>`;
+  });
+}
+
 function WordViewer({ content, fileName }: { content: string; fileName?: string }) {
   const isHtml = /<[a-z]/i.test(content);
+  const processedHtml = isHtml ? enhanceWordHtml(sanitizeHtml(content)) : "";
+
   return (
     <div className="word-preview-wrap h-full">
       {/* トップバー */}
       <div className="word-preview-topbar">
         <span className="word-preview-topbar-title">{fileName ?? "Word Document"}</span>
         <span className="word-preview-topbar-badge">DOCX</span>
-        <span className="ml-auto text-[10px] text-slate-400 bg-amber-50 border border-amber-200 text-amber-600 px-2 py-0.5 rounded">
+        <span className="ml-auto text-[10px] bg-amber-50 border border-amber-200 text-amber-600 px-2 py-0.5 rounded">
           Word文書（読み取り専用）
         </span>
       </div>
@@ -609,7 +645,7 @@ function WordViewer({ content, fileName }: { content: string; fileName?: string 
       <div className="word-preview-page-wrap">
         <div className="word-preview-page">
           {isHtml ? (
-            <div className="word-preview" dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }} />
+            <div className="word-preview" dangerouslySetInnerHTML={{ __html: processedHtml }} />
           ) : (
             <pre className="word-preview-plain">{content}</pre>
           )}
