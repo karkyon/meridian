@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import TopBar from "@/components/layout/TopBar";
 import HealthClient from "@/components/intelligence/HealthClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function HealthPage() {
   const session = await auth();
   const role = (session?.user as { role?: string })?.role ?? "viewer";

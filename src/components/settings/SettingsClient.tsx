@@ -113,17 +113,44 @@ export default function SettingsClient({ hasApiKey, hasGithubPat, initial }: Set
       )}
 
       {/* Claude API キー */}
-      <div className="bg-white rounded-xl border border-slate-100 p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-          <span>🤖</span> Claude API設定
-        </h2>
+      <div className={`rounded-xl border-2 p-5 space-y-4 transition-colors ${
+        hasApiKey
+          ? "bg-emerald-50/40 border-emerald-200"
+          : "bg-white border-amber-200"
+      }`}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+            <span>🤖</span> Claude API設定
+          </h2>
+          {hasApiKey ? (
+            <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-medium">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              登録済み・有効
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-xs font-medium">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              未設定
+            </span>
+          )}
+        </div>
+
+        {hasApiKey && (
+          <div className="flex items-center gap-2 bg-emerald-100/60 rounded-lg px-3 py-2">
+            <svg className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            <span className="text-xs text-emerald-700">APIキーは暗号化済みで保存されています。変更する場合のみ入力してください。</span>
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-            APIキー
-            {hasApiKey && (
-              <span className="ml-2 normal-case text-emerald-600 font-normal">✓ 登録済み</span>
-            )}
+            {hasApiKey ? "APIキーを上書き変更" : "APIキー"}
           </label>
           <div className="relative">
             <input
@@ -131,7 +158,7 @@ export default function SettingsClient({ hasApiKey, hasGithubPat, initial }: Set
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder={hasApiKey ? "新しいキーを入力して上書き..." : "sk-ant-..."}
-              className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-[#1D6FA4] focus:outline-none focus:ring-2 focus:ring-[#1D6FA4]/20 pr-10"
+              className="w-full rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-[#1D6FA4] focus:outline-none focus:ring-2 focus:ring-[#1D6FA4]/20 pr-10 bg-white"
             />
             <button
               type="button"
@@ -159,7 +186,11 @@ export default function SettingsClient({ hasApiKey, hasGithubPat, initial }: Set
       </div>
 
       {/* GitHub連携設定 */}
-      <div className="bg-white rounded-xl border-2 border-[#1D6FA4]/30 p-5 space-y-4">
+      <div className={`rounded-xl border-2 p-5 space-y-4 transition-colors ${
+        hasGithubPat
+          ? "bg-emerald-50/40 border-emerald-200"
+          : "bg-amber-50/30 border-amber-200"
+      }`}>
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
@@ -172,14 +203,35 @@ export default function SettingsClient({ hasApiKey, hasGithubPat, initial }: Set
               Personal Access Token（PAT）を登録。必要権限: <code className="bg-slate-100 px-1 rounded">repo (read)</code> のみ
             </p>
           </div>
-          {hasGithubPat && (
-            <span className="text-xs text-emerald-600 font-medium">✓ 登録済み</span>
+          {hasGithubPat ? (
+            <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              登録済み・有効
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+              未設定
+            </span>
           )}
         </div>
 
+        {hasGithubPat && (
+          <div className="flex items-center gap-2 bg-emerald-100/60 rounded-lg px-3 py-2">
+            <svg className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+            </svg>
+            <span className="text-xs text-emerald-700">PATは暗号化済みで保存されています。変更する場合のみ入力してください。</span>
+          </div>
+        )}
+
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-            Personal Access Token (PAT)
+            {hasGithubPat ? "PATを上書き変更" : "Personal Access Token (PAT)"}
           </label>
           <div className="relative flex gap-2">
             <input
@@ -187,12 +239,12 @@ export default function SettingsClient({ hasApiKey, hasGithubPat, initial }: Set
               value={githubPat}
               onChange={(e) => { setGithubPat(e.target.value); setGithubTestStatus("idle"); }}
               placeholder={hasGithubPat ? "新しいトークンを入力して上書き..." : "ghp_xxxxxxxxxxxxxxxxxxxx"}
-              className="flex-1 rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm font-mono focus:border-[#1D6FA4] focus:outline-none focus:ring-2 focus:ring-[#1D6FA4]/20"
+              className="flex-1 rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm font-mono focus:border-[#1D6FA4] focus:outline-none focus:ring-2 focus:ring-[#1D6FA4]/20 bg-white"
             />
             <button
               type="button"
               onClick={() => setShowGithubPat(!showGithubPat)}
-              className="px-3 border border-slate-200 rounded-lg text-slate-400 hover:text-slate-600 text-xs"
+              className="px-3 border border-slate-200 rounded-lg text-slate-400 hover:text-slate-600 text-xs bg-white"
             >
               {showGithubPat ? "隠す" : "表示"}
             </button>
@@ -200,7 +252,7 @@ export default function SettingsClient({ hasApiKey, hasGithubPat, initial }: Set
               type="button"
               onClick={handleGithubTest}
               disabled={!githubPat.trim() || githubTestStatus === "testing"}
-              className="px-4 py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50 whitespace-nowrap"
+              className="px-4 py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50 whitespace-nowrap bg-white"
             >
               {githubTestStatus === "testing" ? "確認中..." : "接続テスト"}
             </button>

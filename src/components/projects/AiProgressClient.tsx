@@ -115,8 +115,23 @@ export default function AiProgressClient({ projectId, projectName, repositoryUrl
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600">
-          エラー: {error}
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-600 space-y-1">
+          {error === "NO_TASKS" ? (
+            <>
+              <p className="font-medium">WBSタスクが登録されていません</p>
+              <p className="text-xs text-red-500">
+                AI進捗推定にはWBSフェーズ・タスクの登録が必要です。
+                先にWBSタブからタスクを追加してください。
+              </p>
+            </>
+          ) : error === "CLAUDE_API_KEY_NOT_SET" ? (
+            <>
+              <p className="font-medium">Claude APIキーが未設定です</p>
+              <p className="text-xs text-red-500">設定画面からAPIキーを登録してください。</p>
+            </>
+          ) : (
+            <p>エラー: {error}</p>
+          )}
         </div>
       )}
 
