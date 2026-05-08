@@ -30,20 +30,22 @@ export default async function AttachmentsPage({ params, searchParams }: Params) 
 
   return (
     <div className="flex-1 p-6">
-      <div className="mb-4">
-        <p className="text-xs text-slate-500">
-          Word / PDF / Markdownファイルを保管し、AI生成の参照資料として活用できます。
-        </p>
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-4">
+          <p className="text-xs text-slate-500">
+            Word / PDF / Markdownファイルを保管し、AI生成の参照資料として活用できます。
+          </p>
+        </div>
+        <AttachmentsManager
+          projectId={params.id}
+          docType={docTypeFilter}
+          initialAttachments={attachments.map((a: typeof attachments[0]) => ({
+            ...a,
+            createdAt: a.createdAt.toISOString(),
+          }))}
+          role={role}
+        />
       </div>
-      <AttachmentsManager
-        projectId={params.id}
-        docType={docTypeFilter}
-      initialAttachments={attachments.map((a: typeof attachments[0]) => ({
-          ...a,
-          createdAt: a.createdAt.toISOString(),
-        }))}
-        role={role}
-      />
     </div>
   );
 }
