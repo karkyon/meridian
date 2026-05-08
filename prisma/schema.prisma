@@ -601,6 +601,7 @@ model ProjectAnalysis {
   issueCount       Int            @default(0) @map("issue_count")
   criticalCount    Int            @default(0) @map("critical_count")
   suggestedTaskCount Int          @default(0) @map("suggested_task_count")
+  featureCount       Int          @default(0) @map("feature_count")
 
   // エラー情報
   errorMessage     String?        @map("error_message") @db.Text
@@ -614,6 +615,7 @@ model ProjectAnalysis {
   project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   issues           AnalysisIssue[]
   suggestedTasks   AnalysisSuggestedTask[]
+  features         AnalysisFeature[]
 
   @@index([projectId, createdAt(sort: Desc)], map: "idx_project_analyses_project_date")
   @@index([status], map: "idx_project_analyses_status")
@@ -686,4 +688,39 @@ model DocumentFile {
 
   @@index([documentId], map: "idx_document_files_doc")
   @@map("document_files")
+}
+
+enum FeatureStatus {
+  not_started
+  partial
+  completed
+  unknown
+  @@map("feature_status")
+}
+
+enum FeatureSource {
+  spec
+  code
+  both
+  @@map("feature_source")
+}
+
+model AnalysisFeature {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  analysisId  String        @map("analysis_id") @db.Uuid
+  name        String        @db.VarChar(200)
+  description String        @db.Text
+  status      FeatureStatus @default(unknown)
+  source      FeatureSource @default(both)
+  sourceNote  String?       @map("source_note") @db.Text
+  progressPct Int           @default(0) @map("progress_pct")
+  location    String?       @db.VarChar(500)
+  specRef     String?       @map("spec_ref") @db.VarChar(200)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  analysis ProjectAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId], map: "idx_analysis_features_analysis")
+  @@index([analysisId, status], map: "idx_analysis_features_status")
+  @@map("analysis_features")
 }

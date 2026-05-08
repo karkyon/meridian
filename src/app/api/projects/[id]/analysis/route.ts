@@ -8,6 +8,17 @@ import Anthropic from "@anthropic-ai/sdk";
 
 type Params = { params: { id: string } };
 
+type FeatureItem = {
+  name: string;
+  description: string;
+  status: string;
+  source: string;
+  source_note?: string;
+  progress_pct?: number;
+  location?: string;
+  spec_ref?: string;
+};
+
 async function requireAdmin(req: NextRequest): Promise<{ error: NextResponse } | { ok: true }> {
   const session = await auth();
   if (!session?.user) return { error: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) };
@@ -16,7 +27,7 @@ async function requireAdmin(req: NextRequest): Promise<{ error: NextResponse } |
   return { ok: true };
 }
 
-// { } の深さ追跡による正確なJSON抽出（途中切れ・前後テキスト混入に対応）
+// { } の深さ追跡による正確なJSON抽出
 function extractJson(text: string): string {
   const start = text.indexOf("{");
   if (start === -1) throw new Error("JSON開始位置({)が見つかりません");
@@ -44,6 +55,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     include: {
       issues: { orderBy: [{ severity: "asc" }, { createdAt: "asc" }] },
       suggestedTasks: { orderBy: [{ priority: "asc" }, { createdAt: "asc" }] },
+      features: { orderBy: [{ status: "asc" }, { createdAt: "asc" }] },
     },
   });
   return NextResponse.json(latest ?? null);
@@ -56,7 +68,6 @@ export async function POST(req: NextRequest, { params }: Params) {
   const authResult = await requireAdmin(req);
   if ("error" in authResult) return authResult.error;
 
-  // プロジェクト情報を一括取得
   const project = await prisma.project.findUnique({
     where: { id: params.id, archivedAt: null },
     include: {
@@ -78,7 +89,6 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
 
-  // Claude APIキー確認
   let apiKey: string;
   try {
     apiKey = await getClaudeApiKey();
@@ -86,7 +96,6 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "CLAUDE_API_KEY_NOT_SET" }, { status: 400 });
   }
 
-  // 分析セッションをDB作成（running）
   const analysis = await prisma.projectAnalysis.create({
     data: {
       projectId: params.id,
@@ -99,7 +108,6 @@ export async function POST(req: NextRequest, { params }: Params) {
     },
   });
 
-  // SSEストリーミングレスポンス
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
@@ -124,7 +132,6 @@ export async function POST(req: NextRequest, { params }: Params) {
               const info = await fetchGitHubRepoInfo(parsed.owner, parsed.repo, pat);
               latestCommitSha = info.recentCommits[0]?.sha;
 
-              // ファイルツリー取得（最大400件）
               const treeRes = await fetch(
                 `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/git/trees/${info.defaultBranch}?recursive=1`,
                 {
@@ -151,8 +158,7 @@ export async function POST(req: NextRequest, { params }: Params) {
                 .map((c) => `- ${c.sha.slice(0, 7)} (${c.date.slice(0, 10)}): ${c.message}`)
                 .join("\n");
 
-              githubContext = `
-## GitHubリポジトリ
+              githubContext = `## GitHubリポジトリ
 - URL: ${project.repositoryUrl}
 - 最終push: ${info.lastPushedAt}（${info.daysSinceLastPush}日前）
 - 総コミット数: ${info.commitCount}
@@ -218,8 +224,8 @@ ${fileTree}
 
         const client = new Anthropic({ apiKey });
 
-        // ── Step 3: 第1回API呼び出し（総評・課題） ────────────
-        send("progress", { step: 3, total: 5, message: "AI分析 (1/2): 総評・課題を生成中（30〜60秒）..." });
+        // ── Step 3: 第1回API - 総評・課題 ─────────────────────
+        send("progress", { step: 3, total: 5, message: "AI分析 (1/3): 総評・課題を生成中..." });
 
         const prompt1 = `あなたはシニアソフトウェアアーキテクトです。
 以下のプロジェクト情報を総合的に分析し、現状評価・課題抽出を行ってください。
@@ -275,40 +281,31 @@ ${attachmentsContext ? `# 添付資料\n${attachmentsContext}` : ""}
           max_tokens: 4096,
           messages: [{ role: "user", content: prompt1 }],
         });
-
         const raw1 = res1.content[0].type === "text" ? res1.content[0].text : "{}";
 
-        // 生レスポンス1をDBに即時保存
         await prisma.projectAnalysis.update({
           where: { id: analysis.id },
           data: { rawAiResponse: raw1 },
         });
 
-        // JSON抽出・パース（{ } 深さ追跡）
         let parsed1: {
           overall_score?: number;
           summary?: string;
           strengths?: string[];
           immediate_actions?: string[];
           issues?: Array<{
-            severity: string;
-            category: string;
-            title: string;
-            description: string;
-            location?: string;
-            suggestion?: string;
+            severity: string; category: string; title: string;
+            description: string; location?: string; suggestion?: string;
           }>;
         };
         try {
           parsed1 = JSON.parse(extractJson(raw1));
         } catch (e) {
-          throw new Error(
-            `AI_PARSE_ERROR(1回目): ${e instanceof Error ? e.message : ""} | raw先頭200字: ${raw1.slice(0, 200)}`
-          );
+          throw new Error(`AI_PARSE_ERROR(1回目): ${e instanceof Error ? e.message : ""} | raw先頭200字: ${raw1.slice(0, 200)}`);
         }
 
-        // ── Step 4: 第2回API呼び出し（提案タスク） ────────────
-        send("progress", { step: 4, total: 5, message: "AI分析 (2/2): 改善タスクを生成中..." });
+        // ── Step 4: 第2回API - 提案タスク ─────────────────────
+        send("progress", { step: 4, total: 5, message: "AI分析 (2/3): 改善タスクを生成中..." });
 
         const issuesSummary = (parsed1.issues ?? [])
           .map((iss, i) => `${i + 1}. [${iss.severity}] ${iss.title}`)
@@ -345,62 +342,144 @@ ${techStackContext || "（未登録）"}
           max_tokens: 4096,
           messages: [{ role: "user", content: prompt2 }],
         });
-
         const raw2 = res2.content[0].type === "text" ? res2.content[0].text : "{}";
 
-        // 生レスポンス1+2をDBに保存
         await prisma.projectAnalysis.update({
           where: { id: analysis.id },
           data: { rawAiResponse: raw1 + "\n\n---RAW2---\n\n" + raw2 },
         });
 
-        // JSON抽出・パース
         let parsed2: {
           suggested_tasks?: Array<{
-            title: string;
-            description?: string;
-            priority: string;
-            phase_name: string;
-            estimated_hours?: number;
-            issue_ref?: string;
+            title: string; description?: string; priority: string;
+            phase_name: string; estimated_hours?: number; issue_ref?: string;
           }>;
         };
         try {
           parsed2 = JSON.parse(extractJson(raw2));
         } catch (e) {
-          throw new Error(
-            `AI_PARSE_ERROR(2回目): ${e instanceof Error ? e.message : ""} | raw先頭200字: ${raw2.slice(0, 200)}`
-          );
+          throw new Error(`AI_PARSE_ERROR(2回目): ${e instanceof Error ? e.message : ""} | raw先頭200字: ${raw2.slice(0, 200)}`);
         }
 
-        // 結合
-        const parsed = {
-          ...parsed1,
-          suggested_tasks: parsed2.suggested_tasks ?? [],
-        };
+        // ── Step 5: 機能実装状況（8件×動的ループ・件数無制限） ─
+        // has_more=falseまたは新規取得0件になるまでループ継続
+        // MAX_FEATURE_LOOPS=5で最大40件まで対応（拡張は定数変更のみ）
+        const MAX_FEATURE_LOOPS = 5;
+        const allFeatures: FeatureItem[] = [];
+        const rawFeatureParts: string[] = [];
 
-        // ── Step 5: DB保存 ─────────────────────────────────────
+        for (let loop = 1; loop <= MAX_FEATURE_LOOPS; loop++) {
+          const alreadyFetched = allFeatures.map((f) => f.name);
+
+          send("progress", {
+            step: 5,
+            total: 5,
+            message: `AI分析 (3/3): 機能実装状況を分析中（${loop}回目 / 取得済み${allFeatures.length}件）...`,
+          });
+
+          const isFirst = loop === 1;
+          const featurePrompt = `あなたはシニアソフトウェアアーキテクトです。
+以下のプロジェクト情報から「機能仕様一覧」を抽出し、各機能の実装状況を評価してください。
+
+# プロジェクト: ${project.name}
+
+# 仕様書・ドキュメント
+${docsContext || "（ドキュメント未作成）"}
+
+# GitHubコード情報
+${githubContext}
+
+# WBS・タスク状況
+${wbsContext || "（WBS未作成）"}
+
+---
+
+## 判定基準
+- **source**: "spec"=仕様書のみ / "code"=コードのみ / "both"=両方に存在
+- **status**: "completed"=完全実装済み / "partial"=一部実装済み / "not_started"=未実装 / "unknown"=判定不能
+- **source_note**: 仕様書とコードで乖離がある場合、どちらが最新・正しいかを根拠とともに記述
+
+以下のJSON形式のみ出力してください（前置き・後書き・コードブロック記号は一切不要）。
+
+{
+  "features": [
+    {
+      "name": "機能名（40文字以内）",
+      "description": "機能の概要説明（80〜150文字）",
+      "status": "completed|partial|not_started|unknown",
+      "source": "spec|code|both",
+      "source_note": "判定根拠・どちらが正かの説明（100文字以内）",
+      "progress_pct": 0〜100の整数（実装進捗率）,
+      "location": "実装ファイル・APIルート・コンポーネント名など",
+      "spec_ref": "仕様書の参照箇所（ドキュメント名・セクション名など）"
+    }
+  ],
+  "has_more": true または false
+}
+
+${isFirst
+  ? `- 重要度が高い機能から順に8件を出力してください
+- 仕様書とコードが一致している機能も含める
+- 乖離がある機能は必ず含め、source_noteに根拠を明記
+- まだ出力していない機能が残っている場合は "has_more": true、全て出力完了なら "has_more": false`
+  : `- 以下の出力済み機能は絶対に含めないこと:
+${alreadyFetched.map((n) => `  - ${n}`).join("\n")}
+- 上記以外の未出力機能を8件出力してください
+- 仕様書にあるがコード未実装の機能・コードにあるが仕様書未記載の機能を優先
+- まだ未出力の機能が残っていれば "has_more": true、全て出力完了なら "has_more": false`
+}`;
+
+          const resF = await client.messages.create({
+            model: "claude-sonnet-4-5",
+            max_tokens: 4096,
+            messages: [{ role: "user", content: featurePrompt }],
+          });
+          const rawF = resF.content[0].type === "text" ? resF.content[0].text : "{}";
+          rawFeatureParts.push(rawF);
+
+          // 各ループの生レスポンスをDBに中間保存
+          await prisma.projectAnalysis.update({
+            where: { id: analysis.id },
+            data: {
+              rawAiResponse:
+                raw1 + "\n\n---RAW2---\n\n" + raw2 +
+                rawFeatureParts.map((r, i) => `\n\n---RAW_FEAT${i + 1}---\n\n${r}`).join(""),
+            },
+          });
+
+          let parsedF: { features?: FeatureItem[]; has_more?: boolean };
+          try {
+            parsedF = JSON.parse(extractJson(rawF));
+          } catch (e) {
+            throw new Error(`AI_PARSE_ERROR(機能${loop}回目): ${e instanceof Error ? e.message : ""} | raw先頭200字: ${rawF.slice(0, 200)}`);
+          }
+
+          // 重複除去して追加
+          const newFeatures = (parsedF.features ?? []).filter(
+            (f) => !allFeatures.some((existing) => existing.name === f.name)
+          );
+          allFeatures.push(...newFeatures);
+
+          // has_more=false または新規取得0件でループ終了
+          if (!parsedF.has_more || newFeatures.length === 0) break;
+        }
+
+        // ── DB保存 ────────────────────────────────────────────
         send("progress", { step: 5, total: 5, message: "分析結果を保存中..." });
 
-        const issueData = (parsed.issues ?? []).map((issue) => ({
+        const issueData = (parsed1.issues ?? []).map((issue) => ({
           analysisId: analysis.id,
           severity: (issue.severity as "critical" | "high" | "medium" | "low") ?? "medium",
           category: (issue.category as
-            | "code_doc_mismatch"
-            | "tech_stack_mismatch"
-            | "missing_implementation"
-            | "db_inconsistency"
-            | "security_concern"
-            | "tech_debt"
-            | "missing_test"
-            | "other") ?? "other",
+            | "code_doc_mismatch" | "tech_stack_mismatch" | "missing_implementation"
+            | "db_inconsistency" | "security_concern" | "tech_debt" | "missing_test" | "other") ?? "other",
           title: issue.title ?? "（無題）",
           description: issue.description ?? "",
           location: issue.location ?? null,
           suggestion: issue.suggestion ?? null,
         }));
 
-        const taskData = (parsed.suggested_tasks ?? []).map((task) => ({
+        const taskData = (parsed2.suggested_tasks ?? []).map((task) => ({
           analysisId: analysis.id,
           title: task.title ?? "（無題）",
           description: task.description ?? null,
@@ -410,33 +489,46 @@ ${techStackContext || "（未登録）"}
           issueRef: task.issue_ref ?? null,
         }));
 
-        // トランザクションで一括保存
+        const featureData = allFeatures.map((f) => ({
+          analysisId: analysis.id,
+          name: f.name ?? "（無題）",
+          description: f.description ?? "",
+          status: (f.status as "completed" | "partial" | "not_started" | "unknown") ?? "unknown",
+          source: (f.source as "spec" | "code" | "both") ?? "both",
+          sourceNote: f.source_note ?? null,
+          progressPct: Math.min(100, Math.max(0, f.progress_pct ?? 0)),
+          location: f.location ?? null,
+          specRef: f.spec_ref ?? null,
+        }));
+
         await prisma.$transaction([
           prisma.analysisIssue.createMany({ data: issueData }),
           prisma.analysisSuggestedTask.createMany({ data: taskData }),
+          prisma.analysisFeature.createMany({ data: featureData }),
           prisma.projectAnalysis.update({
             where: { id: analysis.id },
             data: {
               status: "completed",
-              overallScore: parsed.overall_score ?? null,
-              summary: parsed.summary ?? null,
-              strengths: parsed.strengths ?? [],
-              immediateActions: parsed.immediate_actions ?? [],
+              overallScore: parsed1.overall_score ?? null,
+              summary: parsed1.summary ?? null,
+              strengths: parsed1.strengths ?? [],
+              immediateActions: parsed1.immediate_actions ?? [],
               issueCount: issueData.length,
               criticalCount: issueData.filter((i) => i.severity === "critical").length,
               suggestedTaskCount: taskData.length,
+              featureCount: featureData.length,
               githubCommitSha: latestCommitSha ?? null,
               completedAt: new Date(),
             },
           }),
         ]);
 
-        // 完了イベント送信（フル結果）
         const finalResult = await prisma.projectAnalysis.findUnique({
           where: { id: analysis.id },
           include: {
             issues: { orderBy: [{ severity: "asc" }, { createdAt: "asc" }] },
             suggestedTasks: { orderBy: [{ priority: "asc" }, { createdAt: "asc" }] },
+            features: { orderBy: [{ status: "asc" }, { createdAt: "asc" }] },
           },
         });
 
@@ -444,16 +536,10 @@ ${techStackContext || "（未登録）"}
 
       } catch (err) {
         const message = err instanceof Error ? err.message : "UNKNOWN_ERROR";
-
         await prisma.projectAnalysis.update({
           where: { id: analysis.id },
-          data: {
-            status: "failed",
-            errorMessage: message,
-            completedAt: new Date(),
-          },
+          data: { status: "failed", errorMessage: message, completedAt: new Date() },
         }).catch(() => {});
-
         send("error", { message });
       } finally {
         controller.close();

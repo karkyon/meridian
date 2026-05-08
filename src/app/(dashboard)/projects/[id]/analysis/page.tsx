@@ -18,12 +18,7 @@ export default async function AnalysisPage({
 
   const project = await prisma.project.findUnique({
     where: { id: params.id, archivedAt: null },
-    select: {
-      id: true,
-      name: true,
-      repositoryUrl: true,
-      status: true,
-    },
+    select: { id: true, name: true, repositoryUrl: true, status: true },
   });
   if (!project) notFound();
 
@@ -33,6 +28,7 @@ export default async function AnalysisPage({
     include: {
       issues: { orderBy: [{ severity: "asc" }, { createdAt: "asc" }] },
       suggestedTasks: { orderBy: [{ priority: "asc" }, { createdAt: "asc" }] },
+      features: { orderBy: [{ status: "asc" }, { createdAt: "asc" }] },
     },
   });
 
