@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import TopBar from "@/components/layout/TopBar";
 import AttachmentsManager from "@/components/attachments/AttachmentsManager";
 
 type Params = { params: { id: string }; searchParams: { doc_type?: string } };
@@ -30,25 +29,21 @@ export default async function AttachmentsPage({ params, searchParams }: Params) 
   });
 
   return (
-    <>
-      <TopBar title={`${project.name} — 添付資料ライブラリ`}
-        backHref={`/projects/${params.id}`} backLabel="プロジェクトに戻る" />
-      <main className="flex-1 p-6 max-w-3xl">
-        <div className="mb-4">
-          <p className="text-xs text-slate-500">
-            Word / PDF / Markdownファイルを保管し、AI生成の参照資料として活用できます。
-          </p>
-        </div>
-        <AttachmentsManager
-          projectId={params.id}
-          docType={docTypeFilter}
-        initialAttachments={attachments.map((a: typeof attachments[0]) => ({
-            ...a,
-            createdAt: a.createdAt.toISOString(),
-          }))}
-          role={role}
-        />
-      </main>
-    </>
+    <div className="flex-1 p-6">
+      <div className="mb-4">
+        <p className="text-xs text-slate-500">
+          Word / PDF / Markdownファイルを保管し、AI生成の参照資料として活用できます。
+        </p>
+      </div>
+      <AttachmentsManager
+        projectId={params.id}
+        docType={docTypeFilter}
+      initialAttachments={attachments.map((a: typeof attachments[0]) => ({
+          ...a,
+          createdAt: a.createdAt.toISOString(),
+        }))}
+        role={role}
+      />
+    </div>
   );
 }

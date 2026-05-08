@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import TopBar from "@/components/layout/TopBar";
 import ProjectDetailClient from "@/components/projects/ProjectDetailClient";
 
 type Params = { params: { id: string } };
@@ -97,7 +96,6 @@ export default async function ProjectDetailPage({ params }: Params) {
 
   return (
     <>
-      <TopBar title={project.name} />
       <ProjectDetailClient
         project={serializedProject}
         documents={documents}

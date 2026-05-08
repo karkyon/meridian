@@ -23,14 +23,16 @@ export default async function ProjectLayout({ children, params }: Props) {
 
   return (
     <>
-      <TopBar title={project.name} />
-      {/* 共通タブナビ */}
+      <TopBar
+        title={project.name}
+        backHref="/dashboard"
+        backLabel="プロジェクトに戻る"
+      />
       <ProjectTabNav
         projectId={params.id}
         hasRepo={!!project.repositoryUrl}
         role={user.role}
       />
-      {/* 各ページコンテンツ */}
       <main className="flex-1 flex flex-col min-h-0">
         {children}
       </main>
