@@ -25,11 +25,32 @@ export async function GET(req: NextRequest, { params }: Params) {
       if (isWord) {
         try {
           const buf = await readFile(file.storagePath);
+          console.log("\n========== [MAMMOTH DEBUG] documents route ==========");
+          console.log("[MAMMOTH] fileId      :", params.fileId);
+          console.log("[MAMMOTH] originalName:", file.originalName);
+          console.log("[MAMMOTH] storagePath :", file.storagePath);
+          console.log("[MAMMOTH] bufferSize  :", buf.length, "bytes");
+
           const result = await mammoth.convertToHtml({ buffer: buf });
+
+          console.log("[MAMMOTH] messages    :", JSON.stringify(result.messages, null, 2));
+          console.log("[MAMMOTH] html length :", result.value.length, "chars");
+          console.log("[MAMMOTH] html preview:\n", result.value.slice(0, 2000));
+
+          // テーブル構造を抽出してログ出力
+          const tableMatches = result.value.match(/<table[\s\S]*?<\/table>/gi) ?? [];
+          console.log("[MAMMOTH] table count :", tableMatches.length);
+          tableMatches.forEach((tbl, i) => {
+            console.log(`[MAMMOTH] table[${i}] HTML:\n`, tbl.slice(0, 1000));
+          });
+
+          console.log("====================================================\n");
+
           return new NextResponse(result.value, {
             headers: { "Content-Type": "text/html; charset=utf-8" },
           });
-        } catch {
+        } catch (err: any) {
+          console.error("[MAMMOTH ERROR] documents route:", err);
           const fallback = file.extractedText ?? "Word文書のプレビューに失敗しました。ダウンロードして確認してください。";
           return new NextResponse(fallback, {
             headers: { "Content-Type": "text/plain; charset=utf-8" },

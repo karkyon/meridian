@@ -320,7 +320,7 @@
   color: #1e2330;
 }
 
-/* h1: タイトル級（表紙の大見出し） */
+/* h1 */
 .word-preview h1 {
   font-size: 2.6rem;
   font-weight: 900;
@@ -332,7 +332,7 @@
   line-height: 1.15;
 }
 
-/* h2: 章見出し（1.1 など） */
+/* h2 */
 .word-preview h2 {
   font-size: 1.4rem;
   font-weight: 700;
@@ -344,7 +344,7 @@
   line-height: 1.3;
 }
 
-/* h3: 節見出し */
+/* h3 */
 .word-preview h3 {
   font-size: 1.1rem;
   font-weight: 700;
@@ -355,7 +355,7 @@
   line-height: 1.4;
 }
 
-/* h4: 小見出し */
+/* h4 */
 .word-preview h4 {
   font-size: 0.95rem;
   font-weight: 600;
@@ -365,55 +365,53 @@
   border-left: 2px solid #94a3b8;
 }
 
+/* 通常の段落 */
 .word-preview p {
   margin-bottom: 0.85rem;
   color: #1e2330;
   line-height: 1.8;
+  font-size: 0.9rem;
 }
 
 /* ============================================================
-   mammoth タイトル段落強調
-   .word-preview の直接子 p かつ最初の p > b/strong のみに限定
-   （テーブル内の th/td > b には絶対に当たらない）
+   【最重要】th / td / li の中にある b・strong・p は
+   絶対にフォントサイズを継承させる。
+   mammoth は td 内コンテンツを <p><b>テキスト</b></p> で出力するため
+   下記ルールで全て上書きリセットする。
    ============================================================ */
-.word-preview > p:first-of-type > b:only-child,
-.word-preview > p:first-of-type > strong:only-child {
-  font-size: 2.6rem;
-  font-weight: 900;
-  color: #0b1120;
-  letter-spacing: -0.035em;
-  display: block;
-  line-height: 1.15;
-  margin-bottom: 0.5rem;
-}
-
-/* strong / em の基本スタイル */
-.word-preview strong {
-  font-weight: 700;
-  color: #0f172a;
-}
-.word-preview em {
-  font-style: italic;
-  color: #475569;
-}
-
-/* ============================================================
-   【重要】th/td 内の b・strong は font-size を絶対に継承させる
-   mammoth は th 内容を <b>テキスト</b> で包む。
-   上の .word-preview strong { } や p:first-of-type ルールが
-   th/td 内 b に当たってしまい文字が巨大化するのを防ぐ。
-   ============================================================ */
-.word-preview th b,
-.word-preview th strong,
-.word-preview td b,
-.word-preview td strong {
+.word-preview th *,
+.word-preview td * {
   font-size: inherit !important;
-  font-weight: 700;
   color: inherit !important;
-  display: inline;
-  line-height: inherit;
-  letter-spacing: normal;
+  letter-spacing: normal !important;
+  display: inline !important;
+  line-height: inherit !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  font-weight: inherit;
 }
+
+/* th 直下の p は block に戻す（inline だと改行されないため） */
+.word-preview th > p,
+.word-preview td > p {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: inherit !important;
+  color: inherit !important;
+  line-height: 1.4 !important;
+}
+
+/* th 内の b・strong だけ bold を維持 */
+.word-preview th b,
+.word-preview th strong {
+  font-weight: 700;
+}
+
+/* strong / em の基本スタイル（テーブル外） */
+.word-preview strong { font-weight: 700; color: #0f172a; }
+.word-preview em { font-style: italic; color: #475569; }
 
 .word-preview ul, .word-preview ol {
   padding-left: 1.6rem;
@@ -431,9 +429,7 @@
 
 /* ============================================================
    Wordプレビュー テーブル
-   - thead は濃紺+白文字でヘッダー行を明確に区別
-   - 行間を詰める（padding削減）
-   - 縞模様で視認性向上
+   thead は濃紺+白文字でヘッダー行を明確に区別
    ============================================================ */
 .word-preview table {
   width: 100%;
@@ -441,7 +437,6 @@
   margin: 1.25rem 0 1.5rem;
   font-size: 0.84rem;
   border: 1px solid #c8d0d8;
-  overflow: hidden;
   table-layout: auto;
 }
 
@@ -454,11 +449,11 @@
   font-weight: 600;
   padding: 0.5rem 0.85rem;
   text-align: left;
-  font-size: 0.82rem;       /* ← 0.79rem から微調整 */
+  font-size: 0.82rem;
   border-right: 1px solid #2d5280;
   border-bottom: none;
   letter-spacing: 0.02em;
-  white-space: normal;      /* ← nowrap 削除：日本語折り返し許可 */
+  white-space: normal;
   line-height: 1.4;
   vertical-align: middle;
 }
@@ -478,7 +473,7 @@
 .word-preview td:last-child { border-right: none; }
 .word-preview tr:last-child td { border-bottom: none; }
 
-/* 偶数行に薄い背景（縞模様） */
+/* 偶数行縞模様 */
 .word-preview tbody tr:nth-child(even) td { background: #f5f7f9; }
 
 .word-preview tbody tr:hover td {
