@@ -79,7 +79,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         parsed.data.items.map((item, i) =>
           prisma.projectTechStack.upsert({
             where: {
-              uq_project_tech_stacks_project_name: {
+              projectId_name: {
                 projectId: params.id,
                 name: item.name,
               },
@@ -126,9 +126,9 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const item = await prisma.projectTechStack.upsert({
       where: {
-        uq_project_tech_stacks_project_name: {
+        projectId_name: {
           projectId: params.id,
-          name: parsed.data.name,
+          name: parsed.data.name
         },
       },
       update: {

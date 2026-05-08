@@ -617,7 +617,7 @@ function enhanceWordHtml(html: string): string {
 
     // 全tdが <strong> または <b> を含む場合 → ヘッダー行
     const allHaveBold = tdMatches.every(
-      (td) => /<strong[\s>]/i.test(td) || /<b[\s>]/i.test(td)
+      (td: string) => /<strong[\s>]/i.test(td) || /<b[\s>]/i.test(td)
     );
 
     if (allHaveBold) {

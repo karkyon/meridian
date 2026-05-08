@@ -21,7 +21,7 @@ export interface TechStackItem {
   version: string | null;
   notes: string | null;
   sortOrder: number;
-  createdAt: string;
+  createdAt: string | Date;
 }
 
 /** ProjectForm / API リクエスト用（id なし） */
