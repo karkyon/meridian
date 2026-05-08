@@ -371,9 +371,13 @@
   line-height: 1.8;
 }
 
-/* mammothがタイトル段落を <p><b>タイトル</b></p> で出力する場合の強調 */
-.word-preview p:first-of-type > b:only-child,
-.word-preview p:first-of-type > strong:only-child {
+/* ============================================================
+   mammoth タイトル段落強調
+   .word-preview の直接子 p かつ最初の p > b/strong のみに限定
+   （テーブル内の th/td > b には絶対に当たらない）
+   ============================================================ */
+.word-preview > p:first-of-type > b:only-child,
+.word-preview > p:first-of-type > strong:only-child {
   font-size: 2.6rem;
   font-weight: 900;
   color: #0b1120;
@@ -383,8 +387,33 @@
   margin-bottom: 0.5rem;
 }
 
-.word-preview strong { font-weight: 700; color: #0f172a; }
-.word-preview em { font-style: italic; color: #475569; }
+/* strong / em の基本スタイル */
+.word-preview strong {
+  font-weight: 700;
+  color: #0f172a;
+}
+.word-preview em {
+  font-style: italic;
+  color: #475569;
+}
+
+/* ============================================================
+   【重要】th/td 内の b・strong は font-size を絶対に継承させる
+   mammoth は th 内容を <b>テキスト</b> で包む。
+   上の .word-preview strong { } や p:first-of-type ルールが
+   th/td 内 b に当たってしまい文字が巨大化するのを防ぐ。
+   ============================================================ */
+.word-preview th b,
+.word-preview th strong,
+.word-preview td b,
+.word-preview td strong {
+  font-size: inherit !important;
+  font-weight: 700;
+  color: inherit !important;
+  display: inline;
+  line-height: inherit;
+  letter-spacing: normal;
+}
 
 .word-preview ul, .word-preview ol {
   padding-left: 1.6rem;
@@ -402,7 +431,7 @@
 
 /* ============================================================
    Wordプレビュー テーブル
-   - theadは濃紺+白文字でヘッダー行を明確に区別
+   - thead は濃紺+白文字でヘッダー行を明確に区別
    - 行間を詰める（padding削減）
    - 縞模様で視認性向上
    ============================================================ */
@@ -412,7 +441,6 @@
   margin: 1.25rem 0 1.5rem;
   font-size: 0.84rem;
   border: 1px solid #c8d0d8;
-  border-radius: 0;
   overflow: hidden;
   table-layout: auto;
 }
@@ -423,14 +451,16 @@
 
 .word-preview th {
   color: #ffffff;
-  font-weight: 700;
+  font-weight: 600;
   padding: 0.5rem 0.85rem;
   text-align: left;
-  font-size: 0.79rem;
+  font-size: 0.82rem;       /* ← 0.79rem から微調整 */
   border-right: 1px solid #2d5280;
   border-bottom: none;
-  letter-spacing: 0.025em;
-  white-space: nowrap;
+  letter-spacing: 0.02em;
+  white-space: normal;      /* ← nowrap 削除：日本語折り返し許可 */
+  line-height: 1.4;
+  vertical-align: middle;
 }
 
 .word-preview th:last-child { border-right: none; }

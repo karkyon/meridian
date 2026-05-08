@@ -604,8 +604,8 @@ function enhanceWordHtml(html: string): string {
     if (/<thead/i.test(body)) {
       return `<table${attrs}>${body}</table>`;
     }
-    // 最初の <tr>...</tr> を取り出す
-    const firstTrMatch = body.match(/(<tr[^>]*>)([\s\S]*?)(<\/tr>)/i);
+    // 最初の <tr>...</tr> を取り出す（ネスト対応のため最長一致は使わず、最初の</tr>まで）
+    const firstTrMatch = body.match(/(<tr(?:\s[^>]*)?>\s*)([\s\S]*?)(<\/tr>)/i);
     if (!firstTrMatch) return `<table${attrs}>${body}</table>`;
 
     const [fullFirstTr, trOpen, trContent, trClose] = firstTrMatch;
