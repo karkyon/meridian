@@ -21,7 +21,7 @@ export default async function EditProjectPage({ params }: Params) {
       },
     },
   });
-  
+
   if (!project) notFound();
 
   return (
@@ -35,7 +35,7 @@ export default async function EditProjectPage({ params }: Params) {
             description: project.description ?? "",
             status: project.status,
             category: project.category ?? "",
-            techStack: Array.isArray(project.techStack) ? project.techStack as string[] : [],
+            techStack: project.techStacks,
             repositoryUrl: project.repositoryUrl ?? "",
             notes: project.notes ?? "",
           }}
