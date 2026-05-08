@@ -1,35 +1,45 @@
 // src/app/api/projects/[id]/analysis/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withAdmin } from "@/lib/api-helpers";
+import { auth } from "@/lib/auth";
 import { getClaudeApiKey } from "@/lib/claude-helpers";
 import { getGitHubPat, parseRepoFromUrl, fetchGitHubRepoInfo } from "@/lib/github-helpers";
 import Anthropic from "@anthropic-ai/sdk";
 
 type Params = { params: { id: string } };
 
+async function requireAdmin(req: NextRequest): Promise<{ error: NextResponse } | { ok: true }> {
+  const session = await auth();
+  if (!session?.user) return { error: NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 }) };
+  const user = session.user as { role: string };
+  if (user.role !== "admin") return { error: NextResponse.json({ error: "FORBIDDEN" }, { status: 403 }) };
+  return { ok: true };
+}
+
 // ----------------------------------------------------------------
 // GET: 最新の分析結果を取得
 // ----------------------------------------------------------------
 export async function GET(req: NextRequest, { params }: Params) {
-  return withAdmin(req, async () => {
-    const latest = await prisma.projectAnalysis.findFirst({
-      where: { projectId: params.id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        issues: { orderBy: [{ severity: "asc" }, { createdAt: "asc" }] },
-        suggestedTasks: { orderBy: [{ priority: "asc" }, { createdAt: "asc" }] },
-      },
-    });
-    return NextResponse.json(latest ?? null);
+  const auth = await requireAdmin(req);
+  if ("error" in auth) return auth.error;
+
+  const latest = await prisma.projectAnalysis.findFirst({
+    where: { projectId: params.id },
+    orderBy: { createdAt: "desc" },
+    include: {
+      issues: { orderBy: [{ severity: "asc" }, { createdAt: "asc" }] },
+      suggestedTasks: { orderBy: [{ priority: "asc" }, { createdAt: "asc" }] },
+    },
   });
+  return NextResponse.json(latest ?? null);
 }
 
 // ----------------------------------------------------------------
 // POST: システム総合分析を実行（SSEストリーミング）
 // ----------------------------------------------------------------
 export async function POST(req: NextRequest, { params }: Params) {
-  return withAdmin(req, async () => {
+  const authResult = await requireAdmin(req);
+  if ("error" in authResult) return authResult.error;
     // プロジェクト情報を一括取得
     const project = await prisma.project.findUnique({
       where: { id: params.id, archivedAt: null },
@@ -382,29 +392,29 @@ JSONのみ出力してください（前置き・後書き・コードブロッ�
         Connection: "keep-alive",
       },
     });
-  });
 }
 
 // ----------------------------------------------------------------
 // PATCH: 課題を解決済みにマーク
 // ----------------------------------------------------------------
 export async function PATCH(req: NextRequest, { params }: Params) {
-  return withAdmin(req, async () => {
-    const body = await req.json();
-    const { issueId, resolved } = body;
+  const authResult = await requireAdmin(req);
+  if ("error" in authResult) return authResult.error;
 
-    if (!issueId) {
-      return NextResponse.json({ error: "issueId required" }, { status: 400 });
-    }
+  const body = await req.json();
+  const { issueId, resolved } = body;
 
-    const issue = await prisma.analysisIssue.update({
-      where: { id: issueId },
-      data: {
-        resolved: resolved ?? true,
-        resolvedAt: resolved !== false ? new Date() : null,
-      },
-    });
+  if (!issueId) {
+    return NextResponse.json({ error: "issueId required" }, { status: 400 });
+  }
 
-    return NextResponse.json(issue);
+  const issue = await prisma.analysisIssue.update({
+    where: { id: issueId },
+    data: {
+      resolved: resolved ?? true,
+      resolvedAt: resolved !== false ? new Date() : null,
+    },
   });
+
+  return NextResponse.json(issue);
 }

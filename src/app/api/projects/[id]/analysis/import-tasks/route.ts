@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAdmin } from "@/lib/api-helpers";
+import { Prisma } from "@prisma/client";
 
 type Params = { params: { id: string } };
 
@@ -37,8 +38,8 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const importedTaskIds: { suggestedId: string; wbsTaskId: string }[] = [];
 
-    await prisma.$transaction(async (tx: typeof prisma) => {
-      for (const [phaseName, tasks] of phaseMap) {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      for (const [phaseName, tasks] of Array.from(phaseMap.entries())) {
         // 同名フェーズが既存か確認、なければ作成
         let phase = await tx.wbsPhase.findFirst({
           where: { projectId: params.id, name: phaseName },
