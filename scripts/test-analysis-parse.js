@@ -1,50 +1,41 @@
-const { execSync } = require("child_process");
+const { Client } = require("pg");
 
-function parseAiResponse(rawText) {
-  const codeBlockMatch = rawText.match(/```json\s*([\s\S]*?)```/s);
-  const jsonMatch = rawText.match(/\{[\s\S]*\}/s);
-  const cleanText = codeBlockMatch
-    ? codeBlockMatch[1].trim()
-    : jsonMatch ? jsonMatch[0] : rawText.trim();
-  return JSON.parse(cleanText);
+async function parseAiResponse(rawText) {
+  const codeBlockMatch = rawText.match(/```json([\s\S]*?)```/);
+  const extracted = codeBlockMatch ? codeBlockMatch[1] : rawText;
+  let depth=0, start=-1, end=-1;
+  for(let i=0;i<extracted.length;i++){
+    if(extracted[i]==='{'){if(depth===0)start=i;depth++;}
+    else if(extracted[i]==='}'){depth--;if(depth===0){end=i;break;}}
+  }
+  const jsonStr = start>=0&&end>=0 ? extracted.slice(start,end+1) : extracted.trim();
+  return JSON.parse(jsonStr);
 }
 
-let rawText;
-try {
-  const result = execSync(
-    `PGPASSWORD=meridian_secret psql -h localhost -p 5442 -U meridian -d meridian_db -t -A -c "SELECT raw_ai_response FROM project_analyses WHERE raw_ai_response IS NOT NULL ORDER BY created_at DESC LIMIT 1;"`,
-    { encoding: "utf8" }
+async function main() {
+  const client = new Client({
+    host:"localhost", port:5442, user:"meridian",
+    password:"meridian_secret", database:"meridian_db"
+  });
+  await client.connect();
+  const res = await client.query(
+    "SELECT raw_ai_response FROM project_analyses WHERE raw_ai_response IS NOT NULL ORDER BY created_at DESC LIMIT 1"
   );
-  rawText = result.trim();
+  await client.end();
+  
+  const rawText = res.rows[0].raw_ai_response;
   console.log("取得文字数:", rawText.length);
-} catch(e) {
-  console.log("DB取得失敗:", e.message);
-  process.exit(1);
-}
-
-// 問題箇所を特定
-const codeBlockMatch = rawText.match(/```json\s*([\s\S]*?)```/s);
-const cleanText = codeBlockMatch ? codeBlockMatch[1].trim() : rawText;
-
-// 少しずつパースして問題箇所を特定
-for (let i = 100; i <= cleanText.length; i += 100) {
+  console.log("先頭30字:", JSON.stringify(rawText.slice(0,30)));
+  
   try {
-    JSON.parse(cleanText.slice(0, i) + ']}}}');
+    const r = await parseAiResponse(rawText);
+    console.log("✅ パース成功 score:", r.overall_score, "issues:", (r.issues||[]).length, "tasks:", (r.suggested_tasks||[]).length);
   } catch(e) {
-    const pos = parseInt(e.message.match(/position (\d+)/)?.[1] || "0");
-    if (pos > 0 && pos < i) {
-      console.log("\n❌ 問題箇所発見 position:", pos);
-      console.log("前後20文字:", JSON.stringify(cleanText.slice(Math.max(0,pos-20), pos+20)));
-      break;
-    }
+    console.log("❌ パース失敗:", e.message);
+    const m = rawText.match(/```json([\s\S]*?)```/);
+    const clean = m ? m[1] : rawText;
+    const pos = parseInt(e.message.match(/position (\d+)/)?.[1]||"0");
+    if(pos>0) console.log("問題箇所:", JSON.stringify(clean.slice(Math.max(0,pos-50),pos+50)));
   }
 }
-
-try {
-  const r = parseAiResponse(rawText);
-  console.log("\n✅ パース成功 score:", r.overall_score, "issues:", (r.issues||[]).length, "tasks:", (r.suggested_tasks||[]).length);
-} catch(e) {
-  console.log("\n❌ パース失敗:", e.message);
-  const pos = parseInt(e.message.match(/position (\d+)/)?.[1] || "0");
-  if (pos > 0) console.log("問題箇所前後50文字:", JSON.stringify(cleanText.slice(Math.max(0,pos-50), pos+50)));
-}
+main().catch(console.error);
