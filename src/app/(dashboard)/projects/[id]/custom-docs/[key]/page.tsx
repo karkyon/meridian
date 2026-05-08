@@ -36,7 +36,8 @@ export default async function CustomDocPage({ params }: Params) {
   });
 
   return (
-    <CustomDocEditor
+    <>
+      <CustomDocEditor
         projectId={params.id}
         projectName={project.name}
         typeKey={params.key}

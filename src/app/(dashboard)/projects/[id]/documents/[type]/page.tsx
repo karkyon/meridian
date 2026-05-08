@@ -69,7 +69,8 @@ export default async function DocumentPage({ params }: Params) {
   });
 
   return (
-    <DocumentEditor
+    <>
+      <DocumentEditor
         projectId={params.id}
         projectName={project.name}
         docType={docType}
