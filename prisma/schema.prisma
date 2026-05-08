@@ -80,6 +80,22 @@ enum DependencyRelation {
   @@map("dependency_relation")
 }
 
+enum TechCategory {
+  language   // 言語（TypeScript, Python, Go など）
+  frontend   // フロントエンド（Next.js, React, Vue など）
+  backend    // バックエンド（Express, FastAPI, NestJS など）
+  database   // データベース（PostgreSQL, MySQL, Redis など）
+  orm        // ORM/クエリビルダー（Prisma, Drizzle, TypeORM など）
+  auth       // 認証（NextAuth.js, Auth0, Clerk など）
+  infra      // インフラ/クラウド（Docker, Vercel, AWS など）
+  ai_ml      // AI/ML（Claude API, OpenAI, LangChain など）
+  testing    // テスト（Jest, Vitest, Playwright など）
+  tooling    // ツール（ESLint, Prettier, Turborepo など）
+  other      // その他
+
+  @@map("tech_category")
+}
+
 enum AuditAction {
   LOGIN_SUCCESS
   LOGIN_FAILED
@@ -218,6 +234,7 @@ model Project {
   attachments    ProjectAttachment[]
   projectCustomDocTypes ProjectCustomDocType[]
   customDocuments       CustomDocument[]
+  techStacks            ProjectTechStack[]
 
   @@index([status], map: "idx_projects_status")
   @@index([priorityOrder], map: "idx_projects_priority_order")
@@ -417,6 +434,25 @@ model ProjectAttachment {
   @@index([projectId], map: "idx_project_attachments_project_id")
   @@index([createdAt(sort: Desc)], map: "idx_project_attachments_created_at")
   @@map("project_attachments")
+}
+
+model ProjectTechStack {
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId  String       @map("project_id") @db.Uuid
+  name       String       @db.VarChar(100)
+  category   TechCategory @default(other)
+  version    String?      @db.VarChar(50)
+  notes      String?      @db.Text
+  sortOrder  Int          @default(0) @map("sort_order")
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, name], map: "uq_project_tech_stacks_project_name")
+  @@index([projectId], map: "idx_project_tech_stacks_project_id")
+  @@index([name], map: "idx_project_tech_stacks_name")
+  @@index([category], map: "idx_project_tech_stacks_category")
+  @@map("project_tech_stacks")
 }
 
 model CustomDocType {

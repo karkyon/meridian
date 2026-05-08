@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
+import TechStackEditor from "@/components/projects/TechStackEditor";
+import type { TechStackInput } from "@/types/tech-stack";
+import type { TechStackItem } from "@/types/tech-stack";
 
 const schema = z.object({
   name: z.string().min(1, "プロジェクト名は必須です").max(255),
@@ -27,7 +30,7 @@ type ProjectFormProps = {
     description?: string;
     status?: string;
     category?: string;
-    techStack?: string[];
+    techStack?: TechStackItem[];
     repositoryUrl?: string;
     notes?: string;
   };
@@ -43,8 +46,14 @@ export default function ProjectForm({ initial }: ProjectFormProps) {
   const [category, setCategory] = useState(initial?.category ?? "");
   const [repositoryUrl, setRepositoryUrl] = useState(initial?.repositoryUrl ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
-  const [techInput, setTechInput] = useState("");
-  const [techStack, setTechStack] = useState<string[]>(initial?.techStack ?? []);
+  const [techStackItems, setTechStackItems] = useState<TechStackInput[]>(
+    (initial?.techStack ?? []).map((t) => ({
+      name:     t.name,
+      category: t.category,
+      version:  t.version ?? undefined,
+      notes:    t.notes ?? undefined,
+    }))
+  );
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -82,7 +91,13 @@ export default function ProjectForm({ initial }: ProjectFormProps) {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...parsed.data, tech_stack: techStack }),
+        body: JSON.stringify({
+          ...parsed.data,
+          // 旧カラム後方互換（サーバー側で syncLegacyTechStack が更新するが念のため送信）
+          tech_stack: techStackItems.map((t) => t.version ? `${t.name} ${t.version}` : t.name),
+          // 新テーブル向け
+          tech_stack_items: techStackItems,
+        }),
       });
 
       if (!res.ok) {
@@ -166,43 +181,13 @@ export default function ProjectForm({ initial }: ProjectFormProps) {
 
       {/* 技術スタック */}
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">技術スタック</label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={techInput}
-            onChange={(e) => setTechInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTech(); } }}
-            placeholder="例: Next.js（Enterで追加）"
-            className="flex-1 rounded-lg border border-slate-200 px-3.5 py-2.5 text-sm focus:border-[#1D6FA4] focus:outline-none focus:ring-2 focus:ring-[#1D6FA4]/20"
-          />
-          <button
-            type="button"
-            onClick={addTech}
-            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm text-slate-600 transition-colors"
-          >
-            追加
-          </button>
-        </div>
-        {techStack.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {techStack.map((tech: any) => (
-              <span
-                key={tech}
-                className="flex items-center gap-1 text-xs bg-[#1A3A5C]/10 text-[#1A3A5C] px-2 py-1 rounded-full"
-              >
-                {tech}
-                <button
-                  type="button"
-                  onClick={() => removeTech(tech)}
-                  className="text-[#1A3A5C]/50 hover:text-red-500 ml-0.5"
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
+        <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+          技術スタック
+        </label>
+        <TechStackEditor
+          initialItems={initial?.techStack}
+          onChange={setTechStackItems}
+        />
       </div>
 
       {/* リポジトリURL */}

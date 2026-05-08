@@ -87,7 +87,8 @@ export async function POST(req: NextRequest) {
     // priority_order は既存の最大値+1
     const maxOrder = await prisma.project.aggregate({ _max: { priorityOrder: true } });
     const nextOrder = (maxOrder._max.priorityOrder ?? 0) + 1;
-
+    
+    // （1）project 作成
     const project = await prisma.project.create({
       data: {
         name,
@@ -102,6 +103,23 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // （2）tech_stack_items が存在する場合は新テーブルへ一括 upsert
+    if (Array.isArray(body.tech_stack_items) && body.tech_stack_items.length > 0) {
+      await prisma.projectTechStack.createMany({
+        data: body.tech_stack_items.map(
+          (t: { name: string; category: string; version?: string; notes?: string }, i: number) => ({
+            projectId: project.id,
+            name:      t.name,
+            category:  t.category ?? "other",
+            version:   t.version ?? null,
+            notes:     t.notes ?? null,
+            sortOrder: i,
+          })
+        ),
+        skipDuplicates: true,
+      });
+    }
+    
     // 5種類のドキュメントを空で初期作成
     await prisma.document.createMany({
       data: [
