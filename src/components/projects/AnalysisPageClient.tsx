@@ -52,6 +52,7 @@ type Analysis = {
   githubCommitSha: string | null;
   completedAt: string | null;
   createdAt: string;
+  errorMessage: string | null;  // ← この1行追加
   issues: AnalysisIssue[];
   suggestedTasks: SuggestedTask[];
 };
