@@ -604,6 +604,7 @@ model ProjectAnalysis {
 
   // エラー情報
   errorMessage     String?        @map("error_message") @db.Text
+  rawAiResponse    String?        @map("raw_ai_response") @db.Text
 
   // タイムスタンプ
   startedAt        DateTime?      @map("started_at") @db.Timestamptz
