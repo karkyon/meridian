@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Paperclip } from "lucide-react";
+import { FileText, Paperclip, Info, Layers } from "lucide-react";
 
 function GitHubIcon({ className }: { className?: string }) {
   return (
@@ -25,11 +25,33 @@ export default function ProjectTabNav({
   const pathname = usePathname();
   const base = `/projects/${projectId}`;
 
-  // アクティブ判定
-  const isDoc = pathname === base || pathname.startsWith(`${base}/documents`) || pathname.startsWith(`${base}/custom-docs`) || pathname.startsWith(`${base}/generate`);
+  // ── アクティブ判定 ──────────────────────────────────────────
+  const isOverview  = pathname.startsWith(`${base}/overview`);
+  const isTechStack = pathname.startsWith(`${base}/tech-stack`);
+
+  const isDoc =
+    !isOverview &&
+    !isTechStack &&
+    (
+      pathname === base ||
+      pathname.startsWith(`${base}/documents`) ||
+      pathname.startsWith(`${base}/custom-docs`) ||
+      pathname.startsWith(`${base}/generate`)
+    );
+
   const isAttachment = pathname.startsWith(`${base}/attachments`);
-  const isGithub = pathname.startsWith(`${base}/github`);
-  const isAi = pathname.startsWith(`${base}/ai-progress`);
+  const isGithub     = pathname.startsWith(`${base}/github`);
+  const isAi         = pathname.startsWith(`${base}/ai-progress`);
+
+  // documents・custom-docs・wbs・edit・generate の深い階層ではタブ非表示
+  const hideTab =
+    pathname.startsWith(`${base}/documents/`) ||
+    pathname.startsWith(`${base}/custom-docs/`) ||
+    pathname.startsWith(`${base}/wbs`) ||
+    pathname.startsWith(`${base}/edit`) ||
+    pathname.startsWith(`${base}/generate`);
+
+  if (hideTab) return null;
 
   const tabClass = (active: boolean) =>
     `flex items-center gap-1.5 px-4 py-2.5 text-sm border-b-2 transition-colors whitespace-nowrap ${
@@ -40,31 +62,55 @@ export default function ProjectTabNav({
 
   return (
     <div className="bg-white border-b border-slate-200 flex items-center overflow-x-auto px-2">
+      {/* ドキュメント */}
       <Link href={base} className={tabClass(isDoc)}>
         <FileText size={14} />
         ドキュメント
       </Link>
 
+      {/* 添付資料 */}
       <Link href={`${base}/attachments`} className={tabClass(isAttachment)}>
         <Paperclip size={14} />
         添付資料
       </Link>
 
+      {/* GitHub */}
       <Link
         href={hasRepo ? `${base}/github` : "#"}
-        className={`${tabClass(isGithub)} ${!hasRepo ? "text-slate-300 cursor-default pointer-events-none" : ""}`}
-        title={!hasRepo ? "プロジェクト編集でリポジトリURLを設定してください" : undefined}
+        className={`${tabClass(isGithub)} ${
+          !hasRepo ? "text-slate-300 cursor-default pointer-events-none" : ""
+        }`}
+        title={
+          !hasRepo
+            ? "プロジェクト編集でリポジトリURLを設定してください"
+            : undefined
+        }
       >
         <GitHubIcon className="w-3.5 h-3.5" />
         GitHub
-        {!hasRepo && <span className="text-[10px] text-slate-300 ml-0.5">未設定</span>}
+        {!hasRepo && (
+          <span className="text-[10px] text-slate-300 ml-0.5">未設定</span>
+        )}
       </Link>
 
+      {/* AI進捗推定（Admin のみ） */}
       {role === "admin" && (
         <Link href={`${base}/ai-progress`} className={tabClass(isAi)}>
           🤖 AI進捗推定
         </Link>
       )}
+
+      {/* 技術スタック */}
+      <Link href={`${base}/tech-stack`} className={tabClass(isTechStack)}>
+        <Layers size={14} />
+        技術スタック
+      </Link>
+
+      {/* 概要 */}
+      <Link href={`${base}/overview`} className={tabClass(isOverview)}>
+        <Info size={14} />
+        概要
+      </Link>
     </div>
   );
 }

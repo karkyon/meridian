@@ -61,9 +61,70 @@ export default function TechStackEditor({
   const [inputVersion, setInputVersion] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeCategory, setActiveCategory]   = useState<TechCategory | "all">("all");
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkError, setBulkError] = useState("");
 
   const inputRef = useRef<HTMLInputElement>(null);
 
+  function applyBulk() {
+    setBulkError("");
+    const text = bulkText.trim();
+    if (!text) return;
+
+    let parsed: TechStackInput[] = [];
+
+    // JSON 判定
+    if (text.startsWith("[")) {
+      try {
+        const arr = JSON.parse(text) as Array<{ name: string; category?: string; version?: string }>;
+        parsed = arr.map((t) => ({
+          name:     t.name?.trim() ?? "",
+          category: (TECH_CATEGORY_ORDER.includes(t.category as TechCategory)
+            ? t.category : "other") as TechCategory,
+          version:  t.version?.trim() || undefined,
+        })).filter((t) => t.name);
+      } catch {
+        setBulkError("JSON形式が不正です");
+        return;
+      }
+    } else {
+      // カンマ区切り（category:name version 形式も対応）
+      parsed = text
+        .split(/[,\n]/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s) => {
+          const colonIdx = s.indexOf(":");
+          if (colonIdx > 0) {
+            const cat = s.slice(0, colonIdx).trim() as TechCategory;
+            const rest = s.slice(colonIdx + 1).trim();
+            const [name, version] = rest.split(" ");
+            return {
+              name:     name?.trim() ?? rest,
+              category: TECH_CATEGORY_ORDER.includes(cat) ? cat : "other",
+              version:  version?.trim() || undefined,
+            };
+          }
+          const [name, version] = s.split(" ");
+          return { name: name.trim(), category: "other" as TechCategory, version: version?.trim() || undefined };
+        })
+        .filter((t) => t.name);
+    }
+
+    if (parsed.length === 0) {
+      setBulkError("追加できる技術が見つかりませんでした");
+      return;
+    }
+
+    setItems((prev) => {
+      const existing = new Set(prev.map((i) => i.name.toLowerCase()));
+      const newItems = parsed.filter((t) => !existing.has(t.name.toLowerCase()));
+      return [...prev, ...newItems].slice(0, 50);
+    });
+    setBulkText("");
+    setBulkMode(false);
+  }
   // 外部へ変更を通知
   useEffect(() => {
     onChange(items);
@@ -156,7 +217,42 @@ export default function TechStackEditor({
     <div className="space-y-3">
       {/* ---- 入力行（Admin のみ） ---- */}
       {!readOnly && (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+          {/* 一括入力トグル */}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setBulkMode((v) => !v)}
+              className="text-xs text-[#1D6FA4] hover:underline"
+            >
+              {bulkMode ? "▲ 一括入力を閉じる" : "📋 テキストで一括入力"}
+            </button>
+          </div>
+
+          {/* 一括入力エリア */}
+          {bulkMode && (
+            <div className="space-y-2">
+              <textarea
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                rows={5}
+                placeholder={`カンマ区切り: Next.js, TypeScript, PostgreSQL\nカテゴリ付き: frontend:Next.js 14, language:TypeScript\nJSON: [{"name":"Next.js","category":"frontend","version":"14"}]`}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs
+                           focus:border-[#1D6FA4] focus:outline-none focus:ring-2 focus:ring-[#1D6FA4]/20
+                           font-mono resize-none"
+              />
+              {bulkError && <p className="text-xs text-red-500">{bulkError}</p>}
+              <button
+                type="button"
+                onClick={applyBulk}
+                className="px-4 py-1.5 bg-[#1A3A5C] text-white rounded-lg text-xs font-medium
+                           hover:bg-[#2A527A] transition-colors"
+              >
+                一括追加
+              </button>
+            </div>
+          )}
+
           {/* カテゴリ選択 */}
           <div className="flex flex-wrap gap-1.5">
             {TECH_CATEGORY_ORDER.map((cat) => {
