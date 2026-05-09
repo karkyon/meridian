@@ -326,45 +326,364 @@ function DebugPanel({ analysis }: { analysis: Analysis | null }) {
   );
 }
 
+// ── リプレイ型定義 ────────────────────────────────────────────
+type PromptLogEntry = {
+  step: string;
+  prompt: string;
+  rawResponse: string;
+  inputTokens: number;
+  outputTokens: number;
+};
+
+type ReplayMeta = {
+  sourceAnalysisId: string;
+  totalSteps: number;
+  stepErrors: Array<{ step: string; error: string; raw: string }>;
+  fromStep: number;
+};
+
+// ── STEPリプレイパネル ────────────────────────────────────────
+function ReplayPanel({
+  projectId,
+  analysisId,
+  onComplete,
+  onBack,
+}: {
+  projectId: string;
+  analysisId: string;
+  onComplete: (analysis: Analysis, meta: ReplayMeta) => void;
+  onBack: () => void;
+}) {
+  const [replayData, setReplayData] = useState<{
+    analysisId: string;
+    status: string;
+    createdAt: string;
+    executionMode?: string;
+    overallScore: number | null;
+    issueCount: number;
+    suggestedTaskCount: number;
+    featureCount: number;
+    inputTokens?: number | null;
+    outputTokens?: number | null;
+    estimatedCostUsd?: unknown;
+    promptLog: PromptLogEntry[] | null;
+    hasPromptLog: boolean;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fromStep, setFromStep] = useState(1);
+  const [running, setRunning] = useState(false);
+  const [replayLogs, setReplayLogs] = useState<ProgressEvent[]>([]);
+  const [currentMsg, setCurrentMsg] = useState("");
+  const [expandedStep, setExpandedStep] = useState<number | null>(null);
+  const [replayError, setReplayError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/projects/${projectId}/analysis/replay?analysisId=${analysisId}`)
+      .then(r => r.json())
+      .then(setReplayData)
+      .catch(() => setReplayData(null))
+      .finally(() => setLoading(false));
+  }, [projectId, analysisId]);
+
+  const runReplay = async () => {
+    setRunning(true);
+    setReplayError(null);
+    setReplayLogs([]);
+    setCurrentMsg("リプレイ開始中...");
+    try {
+      const res = await fetch(`/api/projects/${projectId}/analysis/replay`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ analysisId, fromStep }),
+      });
+      if (!res.ok || !res.body) throw new Error("リプレイAPI呼び出し失敗");
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        let currentEvent = "";
+        for (const line of lines) {
+          if (line.startsWith("event: ")) { currentEvent = line.slice(7).trim(); }
+          else if (line.startsWith("data: ")) {
+            const payload = JSON.parse(line.slice(6));
+            if (currentEvent === "progress") {
+              setCurrentMsg(payload.message);
+              if (payload.rawResponse || payload.prompt) {
+                setReplayLogs(prev => [...prev, payload]);
+              }
+            } else if (currentEvent === "complete") {
+              onComplete(payload.analysis, payload.replayMeta);
+            } else if (currentEvent === "error") {
+              throw new Error(payload.message);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      setReplayError((err as Error).message);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  if (loading) return <div className="py-8 text-center text-slate-400 text-sm">データ読み込み中...</div>;
+  if (!replayData) return <div className="py-8 text-center text-red-400 text-sm">データ取得失敗</div>;
+
+  const logs = replayData.promptLog ?? [];
+
+  return (
+    <div className="space-y-4">
+      {/* ヘッダー */}
+      <div className="flex items-center justify-between">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-[#1D6FA4] hover:underline">
+          ← 履歴一覧に戻る
+        </button>
+        <span className="text-xs text-slate-400 font-mono">ID: {analysisId.slice(0, 8)}...</span>
+      </div>
+
+      {/* 元分析のサマリー */}
+      <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+        <div className="flex items-center gap-3 flex-wrap mb-2">
+          <span className="text-sm font-semibold text-slate-700">スコア: {replayData.overallScore ?? "―"}</span>
+          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+            {replayData.executionMode === "manual" ? "🖊 手動" : "🤖 AI分析"}
+          </span>
+          <span className="text-xs text-slate-400">{new Date(replayData.createdAt).toLocaleString("ja-JP")}</span>
+          {replayData.estimatedCostUsd != null && (
+            <span className="text-xs text-emerald-600">💰 ${Number(replayData.estimatedCostUsd as number).toFixed(4)}</span>
+          )}
+        </div>
+        <div className="flex gap-3 text-xs text-slate-500">
+          <span>課題 {replayData.issueCount}件</span>
+          <span>タスク {replayData.suggestedTaskCount}件</span>
+          <span>機能 {replayData.featureCount}件</span>
+          {replayData.inputTokens && <span>tokens in:{replayData.inputTokens}/out:{replayData.outputTokens}</span>}
+        </div>
+        {!replayData.hasPromptLog && (
+          <p className="text-xs text-amber-600 mt-2 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+            ⚠ このレコードはprompt_log未保存（旧データ）です。raw_ai_responseから復元したSTEPでリプレイします。
+          </p>
+        )}
+      </div>
+
+      {/* STEPリプレイ設定 */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-emerald-800">🔄 RAWリプレイ（Claude API不使用）</h3>
+            <p className="text-xs text-emerald-600 mt-0.5">保存済みRAWデータでパース・DB保存・表示を再テストします</p>
+          </div>
+        </div>
+        <div className="p-4 space-y-4">
+          {/* 開始STEPの選択 */}
+          <div>
+            <p className="text-xs font-medium text-slate-600 mb-2">開始STEP（指定STEP以降を再処理）：</p>
+            <div className="flex flex-wrap gap-2">
+              {logs.map((log, i) => (
+                <button key={i} onClick={() => setFromStep(i + 1)}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                    fromStep === i + 1
+                      ? "bg-emerald-600 text-white border-emerald-600"
+                      : "border-slate-200 text-slate-600 hover:border-emerald-300"
+                  }`}>
+                  STEP{i + 1}: {log.step}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 実行ボタン */}
+          <div className="flex items-center gap-3">
+            <button onClick={runReplay} disabled={running || logs.length === 0}
+              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              {running ? (
+                <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>リプレイ中...</>
+              ) : (
+                <>🔄 STEP{fromStep}からリプレイ実行</>
+              )}
+            </button>
+            {logs.length === 0 && (
+              <span className="text-xs text-slate-400">RAWデータなし（リプレイ不可）</span>
+            )}
+          </div>
+
+          {/* 実行中メッセージ */}
+          {running && currentMsg && (
+            <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded px-3 py-2">{currentMsg}</p>
+          )}
+
+          {/* エラー */}
+          {replayError && (
+            <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">❌ {replayError}</p>
+          )}
+        </div>
+      </div>
+
+      {/* STEPごとのプロンプト・RAW詳細確認 */}
+      {logs.length > 0 && (
+        <div className="bg-slate-900 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-700">
+            <span className="text-xs font-semibold text-slate-300">
+              🔍 STEP詳細（{logs.length}ステップ）
+              {!replayData.hasPromptLog && <span className="ml-2 text-amber-400">※ プロンプトは旧データのため未保存</span>}
+            </span>
+          </div>
+          {logs.map((log, i) => {
+            // リプレイ実行中のログと照合してパース結果を表示
+            const replayLog = replayLogs.find(r => r.message?.includes(`STEP ${i + 1}`));
+            const hasError = replayLog?.message?.includes("パースエラー");
+            return (
+              <div key={i} className={`border-b border-slate-800 last:border-0 ${hasError ? "bg-red-900/20" : ""}`}>
+                <button onClick={() => setExpandedStep(expandedStep === i ? null : i)}
+                  className="w-full px-4 py-3 flex items-center justify-between text-left">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-mono px-2 py-0.5 rounded ${
+                      hasError ? "bg-red-500/30 text-red-300" : "bg-slate-700 text-slate-300"
+                    }`}>STEP{i + 1}</span>
+                    <span className="text-xs text-slate-300">{log.step}</span>
+                    {hasError && <span className="text-xs text-red-400">❌ パースエラー</span>}
+                    {replayLog && !hasError && running && <span className="text-xs text-emerald-400">✓ 処理済み</span>}
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {log.inputTokens > 0 && (
+                      <span className="text-xs text-slate-500">in:{log.inputTokens}/out:{log.outputTokens}</span>
+                    )}
+                    <span className="text-slate-500 text-xs">{expandedStep === i ? "▲" : "▼"}</span>
+                  </div>
+                </button>
+                {expandedStep === i && (
+                  <div className="px-4 pb-4 space-y-3">
+                    {/* プロンプト */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs text-slate-500 font-medium">▶ プロンプト</p>
+                        <button onClick={() => navigator.clipboard.writeText(log.prompt)}
+                          className="text-xs text-slate-500 hover:text-slate-300 border border-slate-700 px-2 py-0.5 rounded">
+                          コピー
+                        </button>
+                      </div>
+                      <pre className="text-xs text-green-300 bg-slate-950 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap max-h-56 overflow-y-auto">{log.prompt}</pre>
+                    </div>
+                    {/* RAWレスポンス */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs text-slate-500 font-medium">◀ RAWレスポンス（{log.rawResponse.length}文字）</p>
+                        <button onClick={() => navigator.clipboard.writeText(log.rawResponse)}
+                          className="text-xs text-slate-500 hover:text-slate-300 border border-slate-700 px-2 py-0.5 rounded">
+                          コピー
+                        </button>
+                      </div>
+                      <pre className="text-xs text-amber-200 bg-slate-950 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap max-h-56 overflow-y-auto">{log.rawResponse}</pre>
+                    </div>
+                    {/* リプレイ中のパース結果 */}
+                    {replayLog && (
+                      <div className={`text-xs px-3 py-2 rounded ${hasError ? "bg-red-900/40 text-red-300" : "bg-emerald-900/40 text-emerald-300"}`}>
+                        {replayLog.message}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── 履歴タブ ──────────────────────────────────────────────────
-function HistoryTab({ projectId }: { projectId: string }) {
+function HistoryTab({
+  projectId,
+  onReplayComplete,
+}: {
+  projectId: string;
+  onReplayComplete: (analysis: Analysis) => void;
+}) {
   const [histories, setHistories] = useState<Analysis[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Analysis | null>(null);
   const [rawExpanded, setRawExpanded] = useState(false);
   const [promptExpanded, setPromptExpanded] = useState<number | null>(null);
+  const [showReplay, setShowReplay] = useState(false);
+  const [replayResult, setReplayResult] = useState<{ meta: ReplayMeta } | null>(null);
 
-  useEffect(() => {
+  const loadHistories = () => {
     setLoading(true);
     fetch(`/api/projects/${projectId}/analysis?history=10`)
       .then(r => r.json())
       .then((data) => { setHistories(Array.isArray(data) ? data : []); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [projectId]);
+  };
+
+  useEffect(() => { loadHistories(); }, [projectId]);
 
   if (loading) return <div className="px-5 py-8 text-center text-slate-400 text-sm">読み込み中...</div>;
 
+  // リプレイパネル表示中
+  if (selected && showReplay) {
+    return (
+      <ReplayPanel
+        projectId={projectId}
+        analysisId={selected.id}
+        onComplete={(analysis, meta) => {
+          setReplayResult({ meta });
+          onReplayComplete(analysis);
+          setShowReplay(false);
+          loadHistories(); // 履歴を再取得
+        }}
+        onBack={() => setShowReplay(false)}
+      />
+    );
+  }
+
+  // 履歴詳細表示
   if (selected) {
     return (
       <div className="space-y-4">
-        <button onClick={() => setSelected(null)}
-          className="flex items-center gap-1.5 text-xs text-[#1D6FA4] hover:underline">
-          ← 履歴一覧に戻る
-        </button>
+        <div className="flex items-center justify-between">
+          <button onClick={() => { setSelected(null); setReplayResult(null); }}
+            className="flex items-center gap-1.5 text-xs text-[#1D6FA4] hover:underline">
+            ← 履歴一覧に戻る
+          </button>
+          {/* リプレイボタン */}
+          <button onClick={() => setShowReplay(true)}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
+            🔄 RAWリプレイ（API不使用）
+          </button>
+        </div>
+
+        {/* リプレイ結果表示 */}
+        {replayResult && (
+          <div className={`text-xs px-3 py-2 rounded-lg border ${
+            replayResult.meta.stepErrors.length === 0
+              ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+              : "bg-red-50 border-red-200 text-red-700"
+          }`}>
+            {replayResult.meta.stepErrors.length === 0
+              ? `✅ リプレイ完了（${replayResult.meta.totalSteps}STEP・エラーなし）→ 最新の分析結果に反映されました`
+              : `⚠ リプレイ完了（${replayResult.meta.stepErrors.length}件のパースエラー: ${replayResult.meta.stepErrors.map(e => e.step).join(", ")}）`
+            }
+          </div>
+        )}
+
         <div className="bg-slate-50 rounded-lg p-4 space-y-2">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-semibold text-slate-700">
-              スコア: {selected.overallScore ?? "―"}
-            </span>
+            <span className="text-sm font-semibold text-slate-700">スコア: {selected.overallScore ?? "―"}</span>
             <span className={`text-xs px-2 py-0.5 rounded-full ${
-              selected.executionMode === "manual"
-                ? "bg-purple-100 text-purple-700"
-                : "bg-blue-100 text-blue-700"
+              selected.executionMode === "manual" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
             }`}>{selected.executionMode === "manual" ? "🖊 手動テスト" : "🤖 AI分析"}</span>
-            <span className="text-xs text-slate-400">
-              {new Date(selected.createdAt).toLocaleString("ja-JP")}
-            </span>
+            <span className="text-xs text-slate-400">{new Date(selected.createdAt).toLocaleString("ja-JP")}</span>
             {selected.estimatedCostUsd && (
               <span className="text-xs text-emerald-600">💰 ${Number(selected.estimatedCostUsd).toFixed(4)}</span>
             )}
@@ -399,11 +718,19 @@ function HistoryTab({ projectId }: { projectId: string }) {
                 {promptExpanded === i && (
                   <div className="px-4 pb-4 space-y-3">
                     <div>
-                      <p className="text-xs text-slate-500 mb-1">▶ プロンプト</p>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs text-slate-500 font-medium">▶ プロンプト</p>
+                        <button onClick={() => navigator.clipboard.writeText(log.prompt)}
+                          className="text-xs text-slate-500 hover:text-slate-300 border border-slate-700 px-2 py-0.5 rounded">コピー</button>
+                      </div>
                       <pre className="text-xs text-green-300 bg-slate-950 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto">{log.prompt}</pre>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 mb-1">◀ RAWレスポンス</p>
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-xs text-slate-500 font-medium">◀ RAWレスポンス</p>
+                        <button onClick={() => navigator.clipboard.writeText(log.rawResponse)}
+                          className="text-xs text-slate-500 hover:text-slate-300 border border-slate-700 px-2 py-0.5 rounded">コピー</button>
+                      </div>
                       <pre className="text-xs text-amber-200 bg-slate-950 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto">{log.rawResponse}</pre>
                     </div>
                   </div>
@@ -413,12 +740,12 @@ function HistoryTab({ projectId }: { projectId: string }) {
           </div>
         )}
 
-        {/* RAWデータ */}
+        {/* RAWデータ（全体） */}
         {selected.rawAiResponse && (
           <div className="bg-slate-900 rounded-xl overflow-hidden">
             <button onClick={() => setRawExpanded(!rawExpanded)}
               className="w-full px-4 py-3 flex items-center justify-between text-left border-b border-slate-700">
-              <span className="text-xs font-semibold text-slate-300">📄 RAW AI Response ({selected.rawAiResponse.length}文字)</span>
+              <span className="text-xs font-semibold text-slate-300">📄 RAW AI Response 全体 ({selected.rawAiResponse.length}文字)</span>
               <span className="text-slate-500 text-xs">{rawExpanded ? "▲" : "▼"}</span>
             </button>
             {rawExpanded && (
@@ -430,12 +757,13 @@ function HistoryTab({ projectId }: { projectId: string }) {
     );
   }
 
+  // 履歴一覧
   return (
     <div className="space-y-2">
       {histories.length === 0 ? (
         <div className="py-8 text-center text-slate-400 text-sm">分析履歴がありません</div>
       ) : histories.map((h) => (
-        <button key={h.id} onClick={() => setSelected(h)}
+        <button key={h.id} onClick={() => { setSelected(h); setReplayResult(null); setShowReplay(false); }}
           className="w-full text-left px-4 py-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg transition-colors">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 flex-wrap">
@@ -447,19 +775,13 @@ function HistoryTab({ projectId }: { projectId: string }) {
               {h.executionMode === "manual" && (
                 <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">手動</span>
               )}
-              <span className="text-sm font-medium text-slate-700">
-                スコア: {h.overallScore ?? "―"}
-              </span>
-              <span className="text-xs text-slate-400">
-                課題{h.issueCount} / タスク{h.suggestedTaskCount} / 機能{h.featureCount}
-              </span>
+              <span className="text-sm font-medium text-slate-700">スコア: {h.overallScore ?? "―"}</span>
+              <span className="text-xs text-slate-400">課題{h.issueCount} / タスク{h.suggestedTaskCount} / 機能{h.featureCount}</span>
             </div>
-            <span className="text-xs text-slate-400 shrink-0">
-              {new Date(h.createdAt).toLocaleString("ja-JP")}
-            </span>
+            <span className="text-xs text-slate-400 shrink-0">{new Date(h.createdAt).toLocaleString("ja-JP")}</span>
           </div>
-          {h.estimatedCostUsd && (
-            <p className="text-xs text-emerald-600 mt-1">💰 ${Number(h.estimatedCostUsd).toFixed(4)}</p>
+          {(h as Analysis & { estimatedCostUsd?: unknown }).estimatedCostUsd && (
+            <p className="text-xs text-emerald-600 mt-1">💰 ${Number((h as Analysis & { estimatedCostUsd?: unknown }).estimatedCostUsd).toFixed(4)}</p>
           )}
         </button>
       ))}
@@ -565,7 +887,30 @@ export default function AnalysisPageClient({
     setManualError(null);
     let jsonData: Record<string, unknown>;
     try {
-      jsonData = JSON.parse(manualJson);
+      // ---RAW2--- / ---RAW_FEAT1--- 区切りで複数ブロックに分割してマージ
+      const blocks = manualJson
+        .split(/\n?---(?:RAW\d*|RAW_FEAT\d+)---\n?/)
+        .map(b =>
+          b.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```\s*$/i, "").trim()
+        )
+        .filter(b => b.startsWith("{"));
+
+      if (blocks.length === 0) throw new Error("有効なJSONブロックが見つかりません");
+
+      // 各ブロックをパースしてマージ（featuresは配列結合・重複除去）
+      const merged: Record<string, unknown> = {};
+      for (const block of blocks) {
+        const parsed = JSON.parse(block);
+        if (parsed.features && Array.isArray(merged.features)) {
+          const existing = merged.features as Array<{ name: string }>;
+          const newFeats = (parsed.features as Array<{ name: string }>)
+            .filter(f => !existing.some(e => e.name === f.name));
+          merged.features = [...existing, ...newFeats];
+        } else {
+          Object.assign(merged, parsed);
+        }
+      }
+      jsonData = merged;
     } catch (e) {
       setManualError(`JSONパースエラー: ${(e as Error).message}`);
       return;
@@ -992,9 +1337,15 @@ export default function AnalysisPageClient({
                 </div>
               )}
 
-              {/* FEAT-03: 履歴タブ */}
+              {/* FEAT-03: 履歴タブ（リプレイ機能付き） */}
               {activeTab === "history" && (
-                <HistoryTab projectId={project.id} />
+                <HistoryTab
+                  projectId={project.id}
+                  onReplayComplete={(replayedAnalysis) => {
+                    setAnalysis(replayedAnalysis);
+                    setActiveTab("issues");
+                  }}
+                />
               )}
             </div>
           </div>
