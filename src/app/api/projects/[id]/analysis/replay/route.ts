@@ -170,7 +170,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       status: "running",
       startedAt: new Date(),
       techStackCount: sourceAnalysis.techStackCount,
-      docVersions: sourceAnalysis.docVersions,
+      docVersions: sourceAnalysis.docVersions ?? undefined,
       githubCommitSha: sourceAnalysis.githubCommitSha,
       // @ts-ignore
       executionMode: "manual",
