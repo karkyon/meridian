@@ -149,6 +149,253 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
+// ── KPI メトリクスカード ──────────────────────────────────────
+function KpiCard({
+  label,
+  value,
+  sub,
+  color = "text-slate-800",
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  color?: string;
+}) {
+  return (
+    <div className="bg-slate-50 rounded-xl px-4 py-3 flex flex-col gap-0.5">
+      <span className="text-[11px] text-slate-400 font-medium">{label}</span>
+      <span className={`text-xl font-bold leading-tight ${color}`}>{value}</span>
+      {sub && <span className="text-[10px] text-slate-400">{sub}</span>}
+    </div>
+  );
+}
+ 
+// ── 分析サマリーカード（新版） ────────────────────────────────
+function AnalysisSummaryCard({ analysis }: { analysis: Analysis }) {
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
+ 
+  // issues の severity 別集計
+  const bySeverity = {
+    critical: analysis.issues.filter(i => i.severity === "critical").length,
+    high:     analysis.issues.filter(i => i.severity === "high").length,
+    medium:   analysis.issues.filter(i => i.severity === "medium").length,
+    low:      analysis.issues.filter(i => i.severity === "low").length,
+  };
+ 
+  // features の status 別集計
+  const byFeature = {
+    completed:   analysis.features.filter(f => f.status === "completed").length,
+    partial:     analysis.features.filter(f => f.status === "partial").length,
+    not_started: analysis.features.filter(f => f.status === "not_started").length,
+  };
+  const featureAvgPct = analysis.features.length > 0
+    ? Math.round(analysis.features.reduce((s, f) => s + f.progressPct, 0) / analysis.features.length)
+    : 0;
+ 
+  // tasks priority 別集計
+  const byTask = {
+    high: analysis.suggestedTasks.filter(t => t.priority === "high").length,
+    mid:  analysis.suggestedTasks.filter(t => t.priority === "mid").length,
+    low:  analysis.suggestedTasks.filter(t => t.priority === "low").length,
+  };
+ 
+  // コスト
+  const cost = (analysis as Analysis & { estimatedCostUsd?: unknown }).estimatedCostUsd;
+  const costStr = cost != null ? `$${Number(cost).toFixed(4)}` : null;
+ 
+  // 実行モード
+  const mode = (analysis as Analysis & { executionMode?: string }).executionMode;
+  const modeLabel = mode === "manual" ? "手動テスト" : "AI分析";
+  const modeBg = mode === "manual" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700";
+ 
+  // summaryテキスト（Markdownの**bold**を除去して表示）
+  const summaryText = (analysis.summary ?? "").replace(/\*\*/g, "");
+  const summaryLines = summaryText.split("\n").filter(l => l.trim());
+  const summaryShort = summaryLines.slice(0, 3).join(" ").slice(0, 200);
+  const needsExpand = summaryText.length > 200 || summaryLines.length > 3;
+ 
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+      {/* ── ヘッダーバー ── */}
+      <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 border-b border-slate-100 flex-wrap">
+        <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${modeBg}`}>
+          {modeLabel}
+        </span>
+        <span className="text-xs text-slate-400">
+          {new Date(analysis.completedAt ?? analysis.createdAt).toLocaleString("ja-JP")}
+        </span>
+        {analysis.githubCommitSha && (
+          <span className="text-xs text-slate-400 font-mono">
+            #{analysis.githubCommitSha.slice(0, 7)}
+          </span>
+        )}
+        {costStr && (
+          <span className="ml-auto text-xs text-emerald-600 font-medium">{costStr}</span>
+        )}
+        {(analysis as Analysis & { inputTokens?: number | null }).inputTokens && (
+          <span className="text-xs text-slate-400">
+            tokens in:{(analysis as Analysis & { inputTokens?: number | null }).inputTokens} / out:{(analysis as Analysis & { outputTokens?: number | null }).outputTokens}
+          </span>
+        )}
+      </div>
+ 
+      <div className="p-5 space-y-5">
+        {/* ── スコア + KPI グリッド ── */}
+        <div className="flex gap-4 items-center flex-wrap">
+          {/* スコアリング */}
+          {analysis.overallScore != null && (
+            <div className="shrink-0">
+              <ScoreRing score={analysis.overallScore} />
+            </div>
+          )}
+ 
+          {/* KPIカード群 */}
+          <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-2 min-w-0">
+            <KpiCard
+              label="重大課題"
+              value={bySeverity.critical}
+              sub={`全課題 ${analysis.issueCount}件`}
+              color={bySeverity.critical > 0 ? "text-red-600" : "text-slate-800"}
+            />
+            <KpiCard
+              label="提案タスク"
+              value={analysis.suggestedTaskCount}
+              sub={`高優先 ${byTask.high}件`}
+              color="text-[#1D6FA4]"
+            />
+            <KpiCard
+              label="機能実装率"
+              value={`${featureAvgPct}%`}
+              sub={`${byFeature.completed}/${analysis.featureCount}件完了`}
+              color={featureAvgPct >= 80 ? "text-emerald-600" : featureAvgPct >= 50 ? "text-[#1D6FA4]" : "text-amber-600"}
+            />
+          </div>
+        </div>
+ 
+        {/* ── 課題サマリーバー ── */}
+        {analysis.issueCount > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-slate-500">課題の重要度分布</span>
+              <span className="text-xs text-slate-400">{analysis.issueCount}件</span>
+            </div>
+            <div className="flex gap-1 h-2 rounded-full overflow-hidden">
+              {bySeverity.critical > 0 && (
+                <div
+                  className="bg-red-500 transition-all"
+                  style={{ flex: bySeverity.critical }}
+                  title={`重大: ${bySeverity.critical}件`}
+                />
+              )}
+              {bySeverity.high > 0 && (
+                <div
+                  className="bg-orange-400 transition-all"
+                  style={{ flex: bySeverity.high }}
+                  title={`高: ${bySeverity.high}件`}
+                />
+              )}
+              {bySeverity.medium > 0 && (
+                <div
+                  className="bg-yellow-400 transition-all"
+                  style={{ flex: bySeverity.medium }}
+                  title={`中: ${bySeverity.medium}件`}
+                />
+              )}
+              {bySeverity.low > 0 && (
+                <div
+                  className="bg-slate-300 transition-all"
+                  style={{ flex: bySeverity.low }}
+                  title={`低: ${bySeverity.low}件`}
+                />
+              )}
+            </div>
+            <div className="flex gap-3 mt-1.5 flex-wrap">
+              {bySeverity.critical > 0 && <span className="text-[11px] text-red-600">● 重大 {bySeverity.critical}</span>}
+              {bySeverity.high > 0     && <span className="text-[11px] text-orange-500">● 高 {bySeverity.high}</span>}
+              {bySeverity.medium > 0   && <span className="text-[11px] text-yellow-600">● 中 {bySeverity.medium}</span>}
+              {bySeverity.low > 0      && <span className="text-[11px] text-slate-400">● 低 {bySeverity.low}</span>}
+            </div>
+          </div>
+        )}
+ 
+        {/* ── 機能実装ミニバー ── */}
+        {analysis.featureCount > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-medium text-slate-500">機能実装状況</span>
+              <span className="text-xs text-slate-400">{analysis.featureCount}件 / 平均{featureAvgPct}%</span>
+            </div>
+            <div className="flex gap-1 h-2 rounded-full overflow-hidden">
+              {byFeature.completed > 0 && (
+                <div className="bg-emerald-500" style={{ flex: byFeature.completed }} title={`完了: ${byFeature.completed}件`} />
+              )}
+              {byFeature.partial > 0 && (
+                <div className="bg-blue-400" style={{ flex: byFeature.partial }} title={`部分: ${byFeature.partial}件`} />
+              )}
+              {byFeature.not_started > 0 && (
+                <div className="bg-slate-200" style={{ flex: byFeature.not_started }} title={`未着手: ${byFeature.not_started}件`} />
+              )}
+            </div>
+            <div className="flex gap-3 mt-1.5 flex-wrap">
+              {byFeature.completed > 0   && <span className="text-[11px] text-emerald-600">● 実装完了 {byFeature.completed}</span>}
+              {byFeature.partial > 0     && <span className="text-[11px] text-blue-600">● 部分実装 {byFeature.partial}</span>}
+              {byFeature.not_started > 0 && <span className="text-[11px] text-slate-400">● 未着手 {byFeature.not_started}</span>}
+            </div>
+          </div>
+        )}
+ 
+        {/* ── 強み ── */}
+        {analysis.strengths && analysis.strengths.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-slate-500 mb-1.5">💪 強み</p>
+            <div className="flex flex-wrap gap-1.5">
+              {analysis.strengths.map((s, i) => (
+                <span key={i} className="bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-full border border-emerald-100 leading-snug">
+                  {s}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+ 
+        {/* ── 今すぐやること ── */}
+        {analysis.immediateActions && analysis.immediateActions.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-slate-500 mb-1.5">⚡ 今すぐやること</p>
+            <ol className="space-y-2">
+              {analysis.immediateActions.map((a, i) => (
+                <li key={i} className="text-sm text-slate-700 flex gap-2.5 items-start">
+                  <span className="shrink-0 w-5 h-5 rounded-full bg-[#1D6FA4] text-white text-[10px] font-bold flex items-center justify-center mt-0.5">
+                    {i + 1}
+                  </span>
+                  <span className="leading-snug">{a}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+ 
+        {/* ── 総評テキスト（折りたたみ） ── */}
+        {summaryText && (
+          <div className="border-t border-slate-100 pt-4">
+            <div className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">
+              {summaryExpanded ? summaryText : summaryShort + (needsExpand ? "…" : "")}
+            </div>
+            {needsExpand && (
+              <button
+                onClick={() => setSummaryExpanded(!summaryExpanded)}
+                className="mt-1.5 text-xs text-[#1D6FA4] hover:underline"
+              >
+                {summaryExpanded ? "▲ 折りたたむ" : "▼ 全文を表示"}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── 機能実装状況セクション ────────────────────────────────────
 function FeaturesSection({ features }: { features: AnalysisFeature[] }) {
   const [statusFilter, setStatusFilter] = useState<FeatureStatus | "all">("all");
@@ -818,7 +1065,9 @@ export default function AnalysisPageClient({
       const res = await fetch(`/api/projects/${project.id}/analysis`);
       if (res.ok) {
         const data = await res.json();
-        if (data) setAnalysis(data);
+        if (data && typeof data === "object" && "id" in data) {
+          setAnalysis(data);
+        }
       }
     } catch {
       // 無視
@@ -862,10 +1111,13 @@ export default function AnalysisPageClient({
                 setProgressLogs(prev => [...prev, payload]);
               }
             } else if (currentEvent === "complete") {
-              setAnalysis(payload.analysis);
+              if (payload.analysis && typeof payload.analysis === "object" && "id" in payload.analysis) {
+                setAnalysis(payload.analysis);
+              }
               setCurrentProgress(null);
-              // BUG-01修正: completeイベント後にサーバーから再取得（SSEとSSRの同期を確実に）
+              setActiveTab("issues");
               setTimeout(() => refreshAnalysis(), 500);
+              setTimeout(() => refreshAnalysis(), 1500);  // 念のため2段階
             } else if (currentEvent === "error") {
               throw new Error(payload.message);
             }
@@ -1116,74 +1368,7 @@ export default function AnalysisPageClient({
       {analysis?.status === "completed" && (
         <>
           {/* サマリーカード */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="p-5">
-              <div className="flex gap-5 items-start">
-                {analysis.overallScore != null && <ScoreRing score={analysis.overallScore} />}
-                <div className="flex-1 space-y-3 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {analysis.criticalCount > 0 && (
-                      <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 text-xs px-2.5 py-1 rounded-full border border-red-100">
-                        ⚠ 重大課題 {analysis.criticalCount}件
-                      </span>
-                    )}
-                    <span className="inline-flex items-center gap-1 bg-slate-50 text-slate-600 text-xs px-2.5 py-1 rounded-full border border-slate-100">
-                      課題 {analysis.issueCount}件
-                    </span>
-                    <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-600 text-xs px-2.5 py-1 rounded-full border border-blue-100">
-                      提案タスク {analysis.suggestedTaskCount}件
-                    </span>
-                    {analysis.featureCount > 0 && (
-                      <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 text-xs px-2.5 py-1 rounded-full border border-emerald-100">
-                        機能 {analysis.featureCount}件
-                      </span>
-                    )}
-                    {analysis.executionMode === "manual" && (
-                      <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-600 text-xs px-2.5 py-1 rounded-full border border-purple-100">
-                        🖊 手動テスト
-                      </span>
-                    )}
-                    {analysis.estimatedCostUsd && (
-                      <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 text-xs px-2.5 py-1 rounded-full border border-emerald-100">
-                        💰 ${Number(analysis.estimatedCostUsd).toFixed(4)}
-                      </span>
-                    )}
-                    <span className="text-xs text-slate-400 ml-auto self-center">
-                      {new Date(analysis.createdAt).toLocaleString("ja-JP")}
-                      {analysis.githubCommitSha && (
-                        <span className="ml-2 font-mono">#{analysis.githubCommitSha.slice(0, 7)}</span>
-                      )}
-                    </span>
-                  </div>
-                  {analysis.summary && (
-                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{analysis.summary}</p>
-                  )}
-                  {analysis.strengths && analysis.strengths.length > 0 && (
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 mb-1.5">✨ 強み</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {analysis.strengths.map((s, i) => (
-                          <span key={i} className="bg-emerald-50 text-emerald-700 text-xs px-2 py-0.5 rounded-full border border-emerald-100">{s}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {analysis.immediateActions && analysis.immediateActions.length > 0 && (
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 mb-1.5">⚡ 今すぐやること</p>
-                      <ol className="space-y-1">
-                        {analysis.immediateActions.map((a, i) => (
-                          <li key={i} className="text-sm text-slate-700 flex gap-2">
-                            <span className="text-[#1D6FA4] font-bold shrink-0">{i + 1}.</span>{a}
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <AnalysisSummaryCard analysis={analysis} />
 
           {/* 機能実装状況セクション */}
           {analysis.features && analysis.features.length > 0 && (
