@@ -121,6 +121,65 @@ enum AuditAction {
   @@map("audit_action")
 }
 
+enum AttachmentType {
+  word
+  pdf
+  markdown
+  html
+  other
+  @@map("attachment_type")
+}
+
+enum AnalysisStatus {
+  pending     // 分析待ち
+  running     // 分析中
+  completed   // 完了
+  failed      // 失敗
+  @@map("analysis_status")
+}
+
+enum IssueSeverity {
+  critical
+  high
+  medium
+  low
+  @@map("issue_severity")
+}
+
+enum IssueCategory {
+  code_doc_mismatch
+  tech_stack_mismatch
+  missing_implementation
+  db_inconsistency
+  security_concern
+  tech_debt
+  missing_test
+  other
+  @@map("issue_category")
+}
+
+enum FeatureStatus {
+  not_started
+  partial
+  completed
+  unknown
+  @@map("feature_status")
+}
+
+enum FeatureSource {
+  spec
+  code
+  both
+  @@map("feature_source")
+}
+
+// ── v8追加 ──────────────────────────────────────────────────
+enum ExecutionMode {
+  ai
+  manual
+  @@map("execution_mode")
+}
+
 model User {
   id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email            String    @unique @db.VarChar(255)
@@ -135,15 +194,16 @@ model User {
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  sessions       Session[]
-  auditLogs      AuditLog[]
-  createdProjects Project[]       @relation("ProjectCreatedBy")
-  savedDocuments  Document[]      @relation("DocumentUpdatedBy")
-  priorityScores  PriorityScore[] @relation("PriorityCreatedBy")
-  uploadedAttachments ProjectAttachment[] @relation("AttachmentCreatedBy")
-  createdCustomDocs   CustomDocument[]     @relation("CustomDocCreatedBy")
-  uploadedCustomFiles CustomDocumentFile[] @relation("CustomDocFileCreatedBy")
-  uploadedDocFiles    DocumentFile[]       @relation("DocFileCreatedBy")
+  sessions                Session[]
+  auditLogs               AuditLog[]
+  createdProjects         Project[]            @relation("ProjectCreatedBy")
+  savedDocuments          Document[]           @relation("DocumentUpdatedBy")
+  priorityScores          PriorityScore[]      @relation("PriorityCreatedBy")
+  uploadedAttachments     ProjectAttachment[]  @relation("AttachmentCreatedBy")
+  createdCustomDocs       CustomDocument[]     @relation("CustomDocCreatedBy")
+  uploadedCustomFiles     CustomDocumentFile[] @relation("CustomDocFileCreatedBy")
+  uploadedDocFiles        DocumentFile[]       @relation("DocFileCreatedBy")
+  createdAnalyses         ProjectAnalysis[]    @relation("AnalysisCreatedBy")
 
   @@index([email], map: "idx_users_email")
   @@index([lockedUntil], map: "idx_users_locked_until")
@@ -225,14 +285,14 @@ model Project {
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-  creator        User?               @relation("ProjectCreatedBy", fields: [createdBy], references: [id])
-  documents      Document[]
-  wbsPhases      WbsPhase[]
-  priorityScores PriorityScore[]
-  healthScores   HealthScore[]
-  dependsOn      ProjectDependency[] @relation("DependingProject")
-  dependedOnBy   ProjectDependency[] @relation("DependedOnProject")
-  attachments    ProjectAttachment[]
+  creator               User?                  @relation("ProjectCreatedBy", fields: [createdBy], references: [id])
+  documents             Document[]
+  wbsPhases             WbsPhase[]
+  priorityScores        PriorityScore[]
+  healthScores          HealthScore[]
+  dependsOn             ProjectDependency[]    @relation("DependingProject")
+  dependedOnBy          ProjectDependency[]    @relation("DependedOnProject")
+  attachments           ProjectAttachment[]
   projectCustomDocTypes ProjectCustomDocType[]
   customDocuments       CustomDocument[]
   techStacks            ProjectTechStack[]
@@ -270,12 +330,12 @@ model Document {
 }
 
 model DocumentVersion {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  documentId String   @map("document_id") @db.Uuid
-  version    Int
-  content    String   @db.Text
-  aiGenerated Boolean @default(false) @map("ai_generated")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId  String   @map("document_id") @db.Uuid
+  version     Int
+  content     String   @db.Text
+  aiGenerated Boolean  @default(false) @map("ai_generated")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
@@ -339,17 +399,17 @@ model RagEmbedding {
 }
 
 model PriorityScore {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId  String   @map("project_id") @db.Uuid
-  impact     Int
-  urgency    Int
-  learning   Int
-  cost       Int
-  motivation Int
-  totalScore Int      @map("total_score")
-  aiSuggested Boolean @default(false) @map("ai_suggested")
-  createdBy  String   @map("created_by") @db.Uuid
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  impact      Int
+  urgency     Int
+  learning    Int
+  cost        Int
+  motivation  Int
+  totalScore  Int      @map("total_score")
+  aiSuggested Boolean  @default(false) @map("ai_suggested")
+  createdBy   String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   creator User    @relation("PriorityCreatedBy", fields: [createdBy], references: [id])
@@ -376,11 +436,11 @@ model HealthScore {
 }
 
 model WeeklySummary {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  weekStart   DateTime @unique @map("week_start") @db.Date
-  content     String   @db.Text
-  focusTaskIds Json?   @map("focus_task_ids") @db.JsonB
-  generatedAt DateTime @map("generated_at") @db.Timestamptz
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  weekStart    DateTime @unique @map("week_start") @db.Date
+  content      String   @db.Text
+  focusTaskIds Json?    @map("focus_task_ids") @db.JsonB
+  generatedAt  DateTime @map("generated_at") @db.Timestamptz
 
   @@index([weekStart(sort: Desc)], map: "idx_weekly_summaries_week_start")
   @@map("weekly_summaries")
@@ -402,36 +462,24 @@ model ProjectDependency {
   @@map("project_dependencies")
 }
 
-// prisma/schema.prisma に追記するモデル定義
-// 既存ファイルの末尾に追加してください
-
-enum AttachmentType {
-  word
-  pdf
-  markdown
-  html
-  other
-  @@map("attachment_type")
-}
-
 model ProjectAttachment {
-  id                 String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId          String         @map("project_id") @db.Uuid
-  filename           String         @db.VarChar(255)
-  originalName       String         @map("original_name") @db.VarChar(255)
-  fileType           AttachmentType @default(other) @map("file_type")
-  mimeType           String         @map("mime_type") @db.VarChar(100)
-  fileSize           Int            @map("file_size")
-  storagePath        String         @map("storage_path") @db.VarChar(500)
-  description        String?        @db.Text
-  extractedText      String?        @map("extracted_text") @db.Text
-  docType            String?        @map("doc_type") @db.VarChar(50)
-  usedForGeneration  Boolean        @default(false) @map("used_for_generation")
-  createdBy          String?        @map("created_by") @db.Uuid
-  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId         String         @map("project_id") @db.Uuid
+  filename          String         @db.VarChar(255)
+  originalName      String         @map("original_name") @db.VarChar(255)
+  fileType          AttachmentType @default(other) @map("file_type")
+  mimeType          String         @map("mime_type") @db.VarChar(100)
+  fileSize          Int            @map("file_size")
+  storagePath       String         @map("storage_path") @db.VarChar(500)
+  description       String?        @db.Text
+  extractedText     String?        @map("extracted_text") @db.Text
+  docType           String?        @map("doc_type") @db.VarChar(50)
+  usedForGeneration Boolean        @default(false) @map("used_for_generation")
+  createdBy         String?        @map("created_by") @db.Uuid
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
 
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  uploader  User?   @relation("AttachmentCreatedBy", fields: [createdBy], references: [id])
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader User?   @relation("AttachmentCreatedBy", fields: [createdBy], references: [id])
 
   @@index([projectId], map: "idx_project_attachments_project_id")
   @@index([createdAt(sort: Desc)], map: "idx_project_attachments_created_at")
@@ -439,14 +487,14 @@ model ProjectAttachment {
 }
 
 model ProjectTechStack {
-  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId  String       @map("project_id") @db.Uuid
-  name       String       @db.VarChar(100)
-  category   TechCategory @default(other)
-  version    String?      @db.VarChar(50)
-  notes      String?      @db.Text
-  sortOrder  Int          @default(0) @map("sort_order")
-  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId String       @map("project_id") @db.Uuid
+  name      String       @db.VarChar(100)
+  category  TechCategory @default(other)
+  version   String?      @db.VarChar(50)
+  notes     String?      @db.Text
+  sortOrder Int          @default(0) @map("sort_order")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -473,12 +521,12 @@ model CustomDocType {
 }
 
 model ProjectCustomDocType {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId   String   @map("project_id") @db.Uuid
-  key         String   @db.VarChar(100)
-  label       String   @db.VarChar(200)
-  sortOrder   Int      @default(0) @map("sort_order")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  key       String   @db.VarChar(100)
+  label     String   @db.VarChar(200)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -488,23 +536,23 @@ model ProjectCustomDocType {
 }
 
 model CustomDocument {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId        String   @map("project_id") @db.Uuid
-  customTypeKey    String   @map("custom_type_key") @db.VarChar(100)
-  customTypeLabel  String   @map("custom_type_label") @db.VarChar(200)
-  content          String?  @db.Text
-  completeness     Int      @default(0)
-  version          Int      @default(1)
-  aiGenerated      Boolean  @default(false) @map("ai_generated")
-  createdBy        String?  @map("created_by") @db.Uuid
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId       String   @map("project_id") @db.Uuid
+  customTypeKey   String   @map("custom_type_key") @db.VarChar(100)
+  customTypeLabel String   @map("custom_type_label") @db.VarChar(200)
+  content         String?  @db.Text
+  completeness    Int      @default(0)
+  version         Int      @default(1)
+  aiGenerated     Boolean  @default(false) @map("ai_generated")
+  createdBy       String?  @map("created_by") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  project       Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  creator       User?                  @relation("CustomDocCreatedBy", fields: [createdBy], references: [id])
-  customDocType CustomDocType?         @relation(fields: [customTypeKey], references: [key])
-  files    CustomDocumentFile[]
-  versions CustomDocumentVersion[]
+  project       Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator       User?                   @relation("CustomDocCreatedBy", fields: [createdBy], references: [id])
+  customDocType CustomDocType?          @relation(fields: [customTypeKey], references: [key])
+  files         CustomDocumentFile[]
+  versions      CustomDocumentVersion[]
 
   @@unique([projectId, customTypeKey], map: "custom_documents_project_type_uq")
   @@index([projectId], map: "idx_custom_documents_project")
@@ -512,20 +560,20 @@ model CustomDocument {
 }
 
 model CustomDocumentFile {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customDocId  String   @map("custom_doc_id") @db.Uuid
-  filename     String
-  originalName String   @map("original_name")
-  fileType     String   @map("file_type")
-  mimeType     String   @map("mime_type")
-  fileSize     Int      @map("file_size")
-  storagePath  String   @map("storage_path")
-  extractedText String? @map("extracted_text")
-  isEditable   Boolean  @default(false) @map("is_editable")
-  completeness Int      @default(0)
-  version      Int      @default(1)
-  createdBy    String   @map("created_by") @db.Uuid
-  createdAt    DateTime @default(now()) @map("created_at")
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customDocId   String   @map("custom_doc_id") @db.Uuid
+  filename      String
+  originalName  String   @map("original_name")
+  fileType      String   @map("file_type")
+  mimeType      String   @map("mime_type")
+  fileSize      Int      @map("file_size")
+  storagePath   String   @map("storage_path")
+  extractedText String?  @map("extracted_text")
+  isEditable    Boolean  @default(false) @map("is_editable")
+  completeness  Int      @default(0)
+  version       Int      @default(1)
+  createdBy     String   @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
 
   customDoc CustomDocument @relation(fields: [customDocId], references: [id], onDelete: Cascade)
   uploader  User?          @relation("CustomDocFileCreatedBy", fields: [createdBy], references: [id])
@@ -535,12 +583,12 @@ model CustomDocumentFile {
 }
 
 model CustomDocumentVersion {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  customDocId  String   @map("custom_doc_id") @db.Uuid
-  version      Int
-  content      String?  @db.Text
-  aiGenerated  Boolean  @default(false) @map("ai_generated")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customDocId String   @map("custom_doc_id") @db.Uuid
+  version     Int
+  content     String?  @db.Text
+  aiGenerated Boolean  @default(false) @map("ai_generated")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   customDoc CustomDocument @relation(fields: [customDocId], references: [id], onDelete: Cascade)
 
@@ -548,140 +596,21 @@ model CustomDocumentVersion {
   @@map("custom_document_versions")
 }
 
-// ============================================================
-// システム総合分析（Project Analysis）
-// ============================================================
-
-enum AnalysisStatus {
-  pending     // 分析待ち
-  running     // 分析中
-  completed   // 完了
-  failed      // 失敗
-  @@map("analysis_status")
-}
-
-enum IssueSeverity {
-  critical  // 重大（即対応必須）
-  high      // 高（今sprint対応）
-  medium    // 中（近日対応）
-  low       // 低（余裕があれば）
-  @@map("issue_severity")
-}
-
-enum IssueCategory {
-  code_doc_mismatch     // コード↔ドキュメント乖離
-  tech_stack_mismatch   // 技術スタック不整合
-  missing_implementation // 未実装機能
-  db_inconsistency      // DB設計不整合
-  security_concern      // セキュリティ懸念
-  tech_debt             // 技術的負債
-  missing_test          // テスト不足
-  other                 // その他
-  @@map("issue_category")
-}
-
-// 分析セッション（1回の総合分析 = 1レコード）
-model ProjectAnalysis {
-  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId        String         @map("project_id") @db.Uuid
-  status           AnalysisStatus @default(pending)
-
-  // 分析に使用した情報のスナップショット（何を元に分析したか記録）
-  githubCommitSha  String?        @map("github_commit_sha") @db.VarChar(40)
-  docVersions      Json?          @map("doc_versions") @db.JsonB    // {planning: 3, requirements: 2, ...}
-  techStackCount   Int            @default(0) @map("tech_stack_count")
-
-  // 分析結果サマリー
-  overallScore     Int?           @map("overall_score")             // 0〜100 総合スコア
-  summary          String?        @db.Text                          // 総評テキスト（Markdown）
-  strengths        Json?          @db.JsonB                         // ["強み1", "強み2", ...]
-  immediateActions Json?          @map("immediate_actions") @db.JsonB // 今すぐやるべきこと[]
-
-  // 統計
-  issueCount       Int            @default(0) @map("issue_count")
-  criticalCount    Int            @default(0) @map("critical_count")
-  suggestedTaskCount Int          @default(0) @map("suggested_task_count")
-  featureCount       Int          @default(0) @map("feature_count")
-
-  // エラー情報
-  errorMessage     String?        @map("error_message") @db.Text
-  rawAiResponse    String?        @map("raw_ai_response") @db.Text
-
-  // タイムスタンプ
-  startedAt        DateTime?      @map("started_at") @db.Timestamptz
-  completedAt      DateTime?      @map("completed_at") @db.Timestamptz
-  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz
-
-  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  issues           AnalysisIssue[]
-  suggestedTasks   AnalysisSuggestedTask[]
-  features         AnalysisFeature[]
-
-  @@index([projectId, createdAt(sort: Desc)], map: "idx_project_analyses_project_date")
-  @@index([status], map: "idx_project_analyses_status")
-  @@map("project_analyses")
-}
-
-// 分析で検出された課題・問題点
-model AnalysisIssue {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  analysisId   String        @map("analysis_id") @db.Uuid
-  severity     IssueSeverity
-  category     IssueCategory
-  title        String        @db.VarChar(300)
-  description  String        @db.Text                // 問題の詳細説明
-  location     String?       @db.VarChar(500)        // 該当ファイル・ドキュメント・DB等
-  suggestion   String?       @db.Text                // 推奨対処法
-  resolved     Boolean       @default(false)         // 解決済みフラグ（手動）
-  resolvedAt   DateTime?     @map("resolved_at") @db.Timestamptz
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
-
-  analysis     ProjectAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-
-  @@index([analysisId, severity], map: "idx_analysis_issues_analysis_severity")
-  @@index([resolved], map: "idx_analysis_issues_resolved")
-  @@map("analysis_issues")
-}
-
-// 分析から提案されたWBSタスク候補
-model AnalysisSuggestedTask {
-  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  analysisId   String       @map("analysis_id") @db.Uuid
-  title        String       @db.VarChar(500)
-  description  String?      @db.Text
-  priority     TaskPriority @default(mid)
-  phaseName    String       @map("phase_name") @db.VarChar(255) // 配置推奨フェーズ名
-  estimatedHours Decimal?   @map("estimated_hours") @db.Decimal(5, 1)
-  issueRef     String?      @map("issue_ref") @db.Text         // 関連するIssueのtitle参照
-
-  // WBSへの取り込み状態
-  imported     Boolean      @default(false)
-  importedTaskId String?    @map("imported_task_id") @db.Uuid  // 取り込み先WbsTask.id
-  importedAt   DateTime?    @map("imported_at") @db.Timestamptz
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
-
-  analysis     ProjectAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-
-  @@index([analysisId], map: "idx_analysis_suggested_tasks_analysis")
-  @@index([imported], map: "idx_analysis_suggested_tasks_imported")
-  @@map("analysis_suggested_tasks")
-}
-
 model DocumentFile {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  documentId   String   @map("document_id") @db.Uuid
-  filename     String
-  originalName String   @map("original_name")
-  fileType     String   @map("file_type")
-  mimeType     String   @map("mime_type")
-  fileSize     Int      @map("file_size")
-  storagePath  String   @map("storage_path")
-  extractedText String? @map("extracted_text")
-  isEditable   Boolean  @default(false) @map("is_editable")
-  completeness Int      @default(0)
-  version      Int      @default(1)
-  createdBy    String   @map("created_by") @db.Uuid
-  createdAt    DateTime @default(now()) @map("created_at")
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId    String   @map("document_id") @db.Uuid
+  filename      String
+  originalName  String   @map("original_name")
+  fileType      String   @map("file_type")
+  mimeType      String   @map("mime_type")
+  fileSize      Int      @map("file_size")
+  storagePath   String   @map("storage_path")
+  extractedText String?  @map("extracted_text")
+  isEditable    Boolean  @default(false) @map("is_editable")
+  completeness  Int      @default(0)
+  version       Int      @default(1)
+  createdBy     String   @map("created_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
 
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   uploader User?    @relation("DocFileCreatedBy", fields: [createdBy], references: [id])
@@ -690,19 +619,106 @@ model DocumentFile {
   @@map("document_files")
 }
 
-enum FeatureStatus {
-  not_started
-  partial
-  completed
-  unknown
-  @@map("feature_status")
+// ============================================================
+// システム総合分析（Project Analysis）
+// ============================================================
+
+// 分析セッション（1回の総合分析 = 1レコード）
+model ProjectAnalysis {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId        String         @map("project_id") @db.Uuid
+  status           AnalysisStatus @default(pending)
+
+  // 分析に使用した情報のスナップショット
+  githubCommitSha  String?        @map("github_commit_sha") @db.VarChar(40)
+  docVersions      Json?          @map("doc_versions") @db.JsonB
+  techStackCount   Int            @default(0) @map("tech_stack_count")
+
+  // 分析結果サマリー
+  overallScore     Int?           @map("overall_score")
+  summary          String?        @db.Text
+  strengths        Json?          @db.JsonB
+  immediateActions Json?          @map("immediate_actions") @db.JsonB
+
+  // 統計
+  issueCount         Int @default(0) @map("issue_count")
+  criticalCount      Int @default(0) @map("critical_count")
+  suggestedTaskCount Int @default(0) @map("suggested_task_count")
+  featureCount       Int @default(0) @map("feature_count")
+
+  // ── v8追加フィールド ──────────────────────────────────────
+  executionMode      ExecutionMode @default(ai)       @map("execution_mode")
+  promptLog          Json?                            @map("prompt_log") @db.JsonB
+  inputTokens        Int?                             @map("input_tokens")
+  outputTokens       Int?                             @map("output_tokens")
+  estimatedCostUsd   Decimal?      @db.Decimal(10, 6) @map("estimated_cost_usd")
+  modelUsed          String?       @db.VarChar(100)   @map("model_used")
+  loopCount          Int?                             @map("loop_count")
+  githubFilesScanned Int?                             @map("github_files_scanned")
+  createdBy          String?       @db.Uuid           @map("created_by")
+
+  // エラー情報
+  errorMessage  String? @map("error_message") @db.Text
+  rawAiResponse String? @map("raw_ai_response") @db.Text
+
+  // タイムスタンプ
+  startedAt   DateTime? @map("started_at") @db.Timestamptz
+  completedAt DateTime? @map("completed_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  project       Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdByUser User?                   @relation("AnalysisCreatedBy", fields: [createdBy], references: [id])
+  issues        AnalysisIssue[]
+  suggestedTasks AnalysisSuggestedTask[]
+  features      AnalysisFeature[]
+
+  @@index([projectId, createdAt(sort: Desc)], map: "idx_project_analyses_project_date")
+  @@index([status], map: "idx_project_analyses_status")
+  @@index([executionMode], map: "idx_project_analyses_execution_mode")
+  @@map("project_analyses")
 }
 
-enum FeatureSource {
-  spec
-  code
-  both
-  @@map("feature_source")
+// 分析で検出された課題
+model AnalysisIssue {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  analysisId  String        @map("analysis_id") @db.Uuid
+  severity    IssueSeverity
+  category    IssueCategory
+  title       String        @db.VarChar(300)
+  description String        @db.Text
+  location    String?       @db.VarChar(500)
+  suggestion  String?       @db.Text
+  resolved    Boolean       @default(false)
+  resolvedAt  DateTime?     @map("resolved_at") @db.Timestamptz
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  analysis ProjectAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId, severity], map: "idx_analysis_issues_analysis_severity")
+  @@index([resolved], map: "idx_analysis_issues_resolved")
+  @@map("analysis_issues")
+}
+
+// 分析から提案されたWBSタスク候補
+model AnalysisSuggestedTask {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  analysisId     String       @map("analysis_id") @db.Uuid
+  title          String       @db.VarChar(500)
+  description    String?      @db.Text
+  priority       TaskPriority @default(mid)
+  phaseName      String       @map("phase_name") @db.VarChar(255)
+  estimatedHours Decimal?     @map("estimated_hours") @db.Decimal(5, 1)
+  issueRef       String?      @map("issue_ref") @db.Text
+  imported       Boolean      @default(false)
+  importedTaskId String?      @map("imported_task_id") @db.Uuid
+  importedAt     DateTime?    @map("imported_at") @db.Timestamptz
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  analysis ProjectAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@index([analysisId], map: "idx_analysis_suggested_tasks_analysis")
+  @@index([imported], map: "idx_analysis_suggested_tasks_imported")
+  @@map("analysis_suggested_tasks")
 }
 
 model AnalysisFeature {
