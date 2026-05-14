@@ -47,15 +47,7 @@ export default function TopBar({ title, backHref, backLabel, actions }: TopBarPr
 
       {actions}
 
-      {/* 新規PJボタン（Admin） */}
-      {role === "admin" && (
-        <Link
-          href="/projects/new"
-          className="text-xs bg-[#1A3A5C] text-white px-3 py-1.5 rounded-lg hover:bg-[#2A527A] transition-colors"
-        >
-          + 新規プロジェクト
-        </Link>
-      )}
+      {/* ※ 新規PJボタンはダッシュボード画面のみに配置するためTopBarからは削除 */}
 
       <button
         onClick={() => signOut({ callbackUrl: "/login" })}

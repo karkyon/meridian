@@ -6,7 +6,16 @@ import { readFile } from "fs/promises";
 
 type Params = { params: { id: string; attachmentId: string } };
 
-// ダウンロード
+// ────────────────────────────────────────────────────────────
+// GET  /api/projects/[id]/attachments/[attachmentId]
+//
+//  ?action=text     → extractedText を JSON で返す（AI生成用）
+//  ?action=preview  → ファイル種別に応じてコンテンツを返す
+//                     MD/HTML → テキスト (text/plain)
+//                     DOCX    → mammoth で変換した HTML (text/html)
+//                     PDF     → extractedText (text/plain)
+//  （なし）         → ファイルダウンロード (Content-Disposition: attachment)
+// ────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest, { params }: Params) {
   return withAuth(req, async () => {
     const attachment = await prisma.projectAttachment.findFirst({
@@ -17,8 +26,10 @@ export async function GET(req: NextRequest, { params }: Params) {
     }
 
     const { searchParams } = req.nextUrl;
-    if (searchParams.get("action") === "text") {
-      // 抽出テキストのみ返す（AI生成で使用）
+    const action = searchParams.get("action");
+
+    // ── action=text（AI生成用・既存）──
+    if (action === "text") {
       return NextResponse.json({
         extracted_text: attachment.extractedText ?? "",
         original_name: attachment.originalName,
@@ -26,13 +37,63 @@ export async function GET(req: NextRequest, { params }: Params) {
       });
     }
 
-    // ファイルダウンロード
+    // ── action=preview（ビューア用・新規）──
+    if (action === "preview") {
+      const ext = attachment.originalName.split(".").pop()?.toLowerCase() ?? "";
+      const isWord = ["docx", "doc"].includes(ext) || attachment.fileType === "word";
+      const isPdf  = ext === "pdf" || attachment.fileType === "pdf";
+      const isMd   = ext === "md" || ext === "markdown";
+      const isHtml = ext === "html" || ext === "htm";
+
+      // DOCX → mammoth で HTML 変換
+      if (isWord) {
+        try {
+          const buf = await readFile(attachment.storagePath);
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const mammoth = require("mammoth");
+          const result  = await mammoth.convertToHtml({ buffer: buf });
+          return new NextResponse(result.value, {
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          });
+        } catch {
+          const fallback = attachment.extractedText ?? "Word文書のプレビューに失敗しました。ダウンロードして確認してください。";
+          return new NextResponse(fallback, {
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
+        }
+      }
+
+      // PDF → 抽出テキスト返却
+      if (isPdf) {
+        const text = attachment.extractedText ?? "（テキスト抽出データがありません）";
+        return new NextResponse(text, {
+          headers: { "Content-Type": "text/plain; charset=utf-8" },
+        });
+      }
+
+      // MD / HTML → ファイル本文をそのまま返却
+      if (isMd || isHtml) {
+        try {
+          const buf = await readFile(attachment.storagePath);
+          return new NextResponse(buf.toString("utf-8"), {
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
+        } catch {
+          return NextResponse.json({ error: "FILE_NOT_FOUND_ON_DISK" }, { status: 404 });
+        }
+      }
+
+      // その他 → ダウンロードにフォールバック
+      // fall through to download below
+    }
+
+    // ── ファイルダウンロード（デフォルト）──
     try {
       const buffer = await readFile(attachment.storagePath);
       return new NextResponse(buffer, {
         headers: {
           "Content-Type": attachment.mimeType,
-          "Content-Disposition": `attachment; filename="${encodeURIComponent(attachment.originalName)}"`,
+          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(attachment.originalName)}`,
           "Content-Length": buffer.length.toString(),
         },
       });
@@ -42,7 +103,9 @@ export async function GET(req: NextRequest, { params }: Params) {
   });
 }
 
-// 説明文更新 or 生成使用フラグ切替
+// ────────────────────────────────────────────────────────────
+// PATCH  説明 or AI生成フラグ更新
+// ────────────────────────────────────────────────────────────
 export async function PATCH(req: NextRequest, { params }: Params) {
   return withAdmin(req, async () => {
     const attachment = await prisma.projectAttachment.findFirst({
@@ -55,10 +118,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const body = await req.json();
     const updateData: Record<string, unknown> = {};
 
-    if (typeof body.description === "string") updateData.description = body.description;
-    if (typeof body.used_for_generation === "boolean") {
-      updateData.usedForGeneration = body.used_for_generation;
-    }
+    if (typeof body.description         === "string")  updateData.description       = body.description;
+    if (typeof body.used_for_generation === "boolean") updateData.usedForGeneration = body.used_for_generation;
 
     const updated = await prisma.projectAttachment.update({
       where: { id: params.attachmentId },
@@ -69,7 +130,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   });
 }
 
-// 削除
+// ────────────────────────────────────────────────────────────
+// DELETE  ファイル削除
+// ────────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest, { params }: Params) {
   return withAdmin(req, async () => {
     const attachment = await prisma.projectAttachment.findFirst({
@@ -79,7 +142,6 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
 
-    // ファイル削除 → DB削除
     await deleteFile(attachment.storagePath);
     await prisma.projectAttachment.delete({ where: { id: params.attachmentId } });
 

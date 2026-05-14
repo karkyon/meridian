@@ -81,6 +81,15 @@ function getFileLabel(fileType: string) {
   return labels[ft] ?? ft.toUpperCase();
 }
 
+const DOC_TYPE_META: Record<string, { label: string; icon: string; color: string }> = {
+  planning:      { label: "企画書",         icon: "📋", color: "bg-violet-50 text-violet-700 border-violet-200" },
+  requirements:  { label: "要件定義書",     icon: "📌", color: "bg-rose-50 text-rose-700 border-rose-200" },
+  external_spec: { label: "外部仕様設計書", icon: "📐", color: "bg-amber-50 text-amber-700 border-amber-200" },
+  db_spec:       { label: "DB仕様設計書",   icon: "🗄️", color: "bg-slate-100 text-slate-700 border-slate-300" },
+  api_spec:      { label: "API詳細設計書",  icon: "🔌", color: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  wireframe:     { label: "ワイヤーフレーム", icon: "🖼️", color: "bg-sky-50 text-sky-700 border-sky-200" },
+};
+
 // ============================================================
 // Markdown → HTML 変換（完全実装・state管理方式）
 // ============================================================
@@ -1495,6 +1504,18 @@ export function DocumentEditor(props: Props) {
             </span>
           )}
         </button>
+
+        {/* ★ ドキュメント種別バッジ */}
+        {(() => {
+          const meta = DOC_TYPE_META[docKey];
+          if (!meta) return null;
+          return (
+            <span className={`ml-2 flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border font-medium ${meta.color}`}>
+              <span>{meta.icon}</span>
+              {meta.label}
+            </span>
+          );
+        })()}
 
         <div className="flex-1" />
 
