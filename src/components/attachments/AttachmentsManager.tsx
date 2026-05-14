@@ -59,7 +59,7 @@ function classifyFile(att: Attachment) {
   const isHtml  = ext === "html" || ext === "htm";
   const isDocx  = ext === "docx" || ext === "doc" || att.fileType === "word";
   const isPdf   = ext === "pdf"  || att.fileType === "pdf";
-  const isImage = ["png", "jpg", "jpeg", "svg", "webp"].includes(ext);
+  const isImage = ["png", "jpg", "jpeg", "svg", "webp", "ico"].includes(ext);
   const canEdit = isMd || isHtml;
   const editorLang: "markdown" | "html" = isHtml ? "html" : "markdown";
   return { isMd, isHtml, isDocx, isPdf, isImage, canEdit, editorLang };
