@@ -1,0 +1,18 @@
+2026-05-14 19:34:18: [31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3025/api/auth/providers. Read more at https://errors.authjs.dev#untrustedhost
+2026-05-14 19:34:18:     at /home/karkyon/projects/meridian/.next/server/chunks/8671.js:404:54160
+2026-05-14 19:34:18:     at oe (/home/karkyon/projects/meridian/.next/server/chunks/8671.js:404:56835)
+2026-05-14 19:34:18:     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-05-14 19:34:18:     at async /home/karkyon/projects/meridian/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:37010
+2026-05-14 19:34:18:     at async eC.execute (/home/karkyon/projects/meridian/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:27552)
+2026-05-14 19:34:18:     at async eC.handle (/home/karkyon/projects/meridian/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:38344)
+2026-05-14 19:34:18:     at async doRender (/home/karkyon/projects/meridian/node_modules/next/dist/server/base-server.js:1353:42)
+2026-05-14 19:34:18:     at async cacheEntry.responseCache.get.routeKind (/home/karkyon/projects/meridian/node_modules/next/dist/server/base-server.js:1575:28)
+2026-05-14 19:34:18: [31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: http://localhost:3025/api/auth/error. Read more at https://errors.authjs.dev#untrustedhost
+2026-05-14 19:34:18:     at /home/karkyon/projects/meridian/.next/server/chunks/8671.js:404:54160
+2026-05-14 19:34:18:     at oe (/home/karkyon/projects/meridian/.next/server/chunks/8671.js:404:56835)
+2026-05-14 19:34:18:     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-05-14 19:34:18:     at async /home/karkyon/projects/meridian/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:37010
+2026-05-14 19:34:18:     at async eC.execute (/home/karkyon/projects/meridian/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:27552)
+2026-05-14 19:34:18:     at async eC.handle (/home/karkyon/projects/meridian/node_modules/next/dist/compiled/next-server/app-route.runtime.prod.js:6:38344)
+2026-05-14 19:34:18:     at async doRender (/home/karkyon/projects/meridian/node_modules/next/dist/server/base-server.js:1353:42)
+2026-05-14 19:34:18:     at async cacheEntry.responseCache.get.routeKind (/home/karkyon/projects/meridian/node_modules/next/dist/server/base-server.js:1575:28)

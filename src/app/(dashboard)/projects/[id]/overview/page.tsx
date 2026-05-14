@@ -1,4 +1,3 @@
-// ✅ 新規作成
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
@@ -18,6 +17,7 @@ export default async function ProjectOverviewPage({ params }: Params) {
       category: true, repositoryUrl: true, notes: true,
       createdAt: true, updatedAt: true,
       progressCache: true, docCompleteness: true,
+      iconUrl: true,
     },
   });
   if (!project) notFound();

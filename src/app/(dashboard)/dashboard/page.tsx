@@ -7,6 +7,7 @@ type ProjectItem = {
   id: string; name: string; status: string; category: string | null;
   techStack: unknown; priorityScore: number; progressCache: unknown;
   docCompleteness: unknown; delayRisk: string | null; updatedAt: Date;
+  iconUrl: string | null;
 };
 import KpiCard from "@/components/projects/KpiCard";
 import FocusPanel from "@/components/intelligence/FocusPanel";
@@ -24,7 +25,7 @@ export default async function DashboardPage() {
       select: {
         id: true, name: true, status: true, category: true, techStack: true,
         priorityScore: true, progressCache: true, docCompleteness: true,
-        delayRisk: true, updatedAt: true,
+        delayRisk: true, updatedAt: true, iconUrl: true,
       },
     }),
     prisma.weeklySummary.findFirst({ orderBy: { weekStart: "desc" } }),

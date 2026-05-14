@@ -282,6 +282,7 @@ model Project {
   delayRisk       DelayRisk?    @map("delay_risk")
   createdBy       String?       @map("created_by") @db.Uuid
   archivedAt      DateTime?     @map("archived_at") @db.Timestamptz
+  iconUrl         String?       @map("icon_url")
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 

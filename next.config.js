@@ -13,6 +13,13 @@ const nextConfig = {
       ],
     }];
   },
-  experimental: { serverActions: { allowedOrigins: ["localhost:3000"] } },
+  experimental: {
+    serverActions: {
+      allowedOrigins: [
+        "localhost:3025",
+        "10.1.119.244:3025",
+      ],
+    },
+  },
 };
 module.exports = nextConfig;
