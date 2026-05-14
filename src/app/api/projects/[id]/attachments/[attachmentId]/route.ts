@@ -14,6 +14,7 @@ type Params = { params: { id: string; attachmentId: string } };
 //                     MD/HTML → テキスト (text/plain)
 //                     DOCX    → mammoth で変換した HTML (text/html)
 //                     PDF     → extractedText (text/plain)
+//                     画像    → バイナリ (image/*)  ← 追加
 //  （なし）         → ファイルダウンロード (Content-Disposition: attachment)
 // ────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest, { params }: Params) {
@@ -37,13 +38,34 @@ export async function GET(req: NextRequest, { params }: Params) {
       });
     }
 
-    // ── action=preview（ビューア用・新規）──
+    // ── action=preview（ビューア用）──
     if (action === "preview") {
       const ext = attachment.originalName.split(".").pop()?.toLowerCase() ?? "";
-      const isWord = ["docx", "doc"].includes(ext) || attachment.fileType === "word";
-      const isPdf  = ext === "pdf" || attachment.fileType === "pdf";
-      const isMd   = ext === "md" || ext === "markdown";
-      const isHtml = ext === "html" || ext === "htm";
+      const isWord  = ["docx", "doc"].includes(ext) || attachment.fileType === "word";
+      const isPdf   = ext === "pdf" || attachment.fileType === "pdf";
+      const isMd    = ext === "md" || ext === "markdown";
+      const isHtml  = ext === "html" || ext === "htm";
+      const isImage = ["png", "jpg", "jpeg", "svg", "webp", "ico"].includes(ext);
+
+      // 画像 → バイナリをそのまま返す
+      if (isImage) {
+        try {
+          const buf = await readFile(attachment.storagePath);
+          const mimeMap: Record<string, string> = {
+            png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+            svg: "image/svg+xml", webp: "image/webp",
+            ico: "image/x-icon",
+          };
+          return new NextResponse(buf, {
+            headers: {
+              "Content-Type": mimeMap[ext] ?? "image/png",
+              "Cache-Control": "public, max-age=3600",
+            },
+          });
+        } catch {
+          return NextResponse.json({ error: "FILE_NOT_FOUND_ON_DISK" }, { status: 404 });
+        }
+      }
 
       // DOCX → mammoth で HTML 変換
       if (isWord) {
@@ -84,7 +106,6 @@ export async function GET(req: NextRequest, { params }: Params) {
       }
 
       // その他 → ダウンロードにフォールバック
-      // fall through to download below
     }
 
     // ── ファイルダウンロード（デフォルト）──
@@ -103,9 +124,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   });
 }
 
-// ────────────────────────────────────────────────────────────
-// PATCH  説明 or AI生成フラグ更新
-// ────────────────────────────────────────────────────────────
+// ── PATCH  説明 or AI生成フラグ更新 ──
 export async function PATCH(req: NextRequest, { params }: Params) {
   return withAdmin(req, async () => {
     const attachment = await prisma.projectAttachment.findFirst({
@@ -130,9 +149,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   });
 }
 
-// ────────────────────────────────────────────────────────────
-// DELETE  ファイル削除
-// ────────────────────────────────────────────────────────────
+// ── DELETE  ファイル削除 ──
 export async function DELETE(req: NextRequest, { params }: Params) {
   return withAdmin(req, async () => {
     const attachment = await prisma.projectAttachment.findFirst({

@@ -25,6 +25,7 @@ export async function GET(req: NextRequest, { params }: Params) {
         jpeg: "image/jpeg",
         svg: "image/svg+xml",
         webp: "image/webp",
+        ico: "image/x-icon",
       };
       return new NextResponse(buf, {
         headers: {

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth, withAdmin } from "@/lib/api-helpers";
 import {
-  MAX_FILE_SIZE, ALLOWED_MIME_TYPES,
-  generateFilename, saveFile, detectFileType, extractTextFromBuffer, toAttachmentType,
+  MAX_FILE_SIZE, MAX_IMAGE_FILE_SIZE, ALLOWED_MIME_TYPES,
+  generateFilename, saveFile, detectFileType, extractTextFromBuffer,
+  toAttachmentType, isImageFileType,
 } from "@/lib/file-upload";
 
 type Params = { params: { id: string } };
@@ -36,22 +37,29 @@ export async function POST(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "FILE_REQUIRED" }, { status: 400 });
     }
 
-    // ファイルサイズチェック
-    if (file.size > MAX_FILE_SIZE) {
+    // ファイル種別を判定
+    const fileType = detectFileType(file.type, file.name);
+
+    // 画像ファイルかどうかで上限を切り替え
+    const sizeLimit = isImageFileType(fileType) ? MAX_IMAGE_FILE_SIZE : MAX_FILE_SIZE;
+    if (file.size > sizeLimit) {
       return NextResponse.json(
-        { error: "FILE_TOO_LARGE", max_size: "5MB" },
+        { error: "FILE_TOO_LARGE", max_size: isImageFileType(fileType) ? "2MB" : "5MB" },
         { status: 400 }
       );
     }
 
-    // MIMEタイプチェック（拡張子でも判定）
-    const fileType = detectFileType(file.type, file.name);
+    // 許可する拡張子（ドキュメント + 画像）
+    const ALLOWED_EXTS = [
+      "docx", "doc", "pdf", "md", "markdown", "html", "htm",
+      "png", "jpg", "jpeg", "svg", "webp", "ico",
+    ];
+
     if (fileType === "other" && !ALLOWED_MIME_TYPES[file.type]) {
-      // .md は text/plain で来ることがあるので拡張子で再チェック
-      const ext = file.name.toLowerCase().split(".").pop();
-      if (!["docx", "doc", "pdf", "md", "markdown"].includes(ext ?? "")) {
+      const ext = file.name.toLowerCase().split(".").pop() ?? "";
+      if (!ALLOWED_EXTS.includes(ext)) {
         return NextResponse.json(
-          { error: "INVALID_FILE_TYPE", allowed: ["docx", "doc", "pdf", "md", "markdown"] },
+          { error: "INVALID_FILE_TYPE", allowed: ALLOWED_EXTS },
           { status: 400 }
         );
       }
@@ -67,7 +75,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // テキスト抽出
+    // テキスト抽出（画像は空文字列）
     const extractedText = await extractTextFromBuffer(buffer, fileType, file.name);
 
     // ファイル保存
@@ -85,7 +93,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         fileSize: file.size,
         storagePath,
         description: description || null,
-      docType: (formData.get('doc_type') as string | null) || null,
+        docType: (formData.get("doc_type") as string | null) || null,
         extractedText: extractedText || null,
         createdBy: user.id,
       },

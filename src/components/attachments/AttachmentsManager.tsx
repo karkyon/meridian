@@ -14,8 +14,15 @@ const FILE_TYPE_CONFIG = {
   pdf:      { label: "PDF",      icon: "📕", cls: "bg-red-50 text-red-700 border-red-200" },
   markdown: { label: "Markdown", icon: "📝", cls: "bg-slate-50 text-slate-700 border-slate-200" },
   html:     { label: "HTML",     icon: "🌐", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-  other:    { label: "その他",   icon: "📎", cls: "bg-slate-50 text-slate-600 border-slate-200" },
+  other:    { label: "画像/その他", icon: "🖼️", cls: "bg-violet-50 text-violet-700 border-violet-200" },
 } as const;
+
+// 画像MIMEタイプセット（プレビュー判定用）
+const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "svg", "webp", "ico"]);
+function isImageAttachment(att: Attachment): boolean {
+  const ext = att.originalName.split(".").pop()?.toLowerCase() ?? "";
+  return IMAGE_EXTS.has(ext);
+}
 
 // ============================================================
 // 型定義
@@ -52,9 +59,10 @@ function classifyFile(att: Attachment) {
   const isHtml  = ext === "html" || ext === "htm";
   const isDocx  = ext === "docx" || ext === "doc" || att.fileType === "word";
   const isPdf   = ext === "pdf"  || att.fileType === "pdf";
+  const isImage = ["png", "jpg", "jpeg", "svg", "webp"].includes(ext);
   const canEdit = isMd || isHtml;
   const editorLang: "markdown" | "html" = isHtml ? "html" : "markdown";
-  return { isMd, isHtml, isDocx, isPdf, canEdit, editorLang };
+  return { isMd, isHtml, isDocx, isPdf, isImage, canEdit, editorLang };
 }
 
 // ============================================================
@@ -279,12 +287,13 @@ function AttachmentViewer({
   onClose: () => void;
 }) {
   const baseUrl = `/api/projects/${projectId}/attachments/${attachment.id}`;
-  const { isMd, isHtml, isDocx, isPdf, canEdit, editorLang } = classifyFile(attachment);
+  const { isMd, isHtml, isDocx, isPdf, isImage, canEdit, editorLang } = classifyFile(attachment);
 
   const [loading, setLoading]       = useState(true);
   const [rawContent, setRawContent] = useState<string | null>(null);   // 編集用（MD/HTML）
   const [wordHtml, setWordHtml]     = useState<string | null>(null);   // Word 変換済みHTML
   const [pdfText, setPdfText]       = useState<string | null>(null);   // PDF 抽出テキスト
+  const [imageSrc, setImageSrc]     = useState<string | null>(null);   // 画像プレビューURL
   const [editContent, setEditContent] = useState("");
   const [isDirty, setIsDirty]       = useState(false);
   const [saving, setSaving]         = useState(false);
@@ -304,6 +313,9 @@ function AttachmentViewer({
           setWordHtml(text);
         } else if (isPdf) {
           setPdfText(text);
+        } else if (isImage) {
+          // 画像はURLで表示（バイナリではなくURLをセット）
+          setImageSrc(`${baseUrl}?action=preview&t=${Date.now()}`);
         } else {
           // MD / HTML
           setRawContent(text);
@@ -503,6 +515,17 @@ function AttachmentViewer({
           )
         )}
 
+        {/* 画像 — インライン表示 */}
+        {!loading && isImage && imageSrc !== null && (
+          <div className="flex items-center justify-center h-full bg-slate-100 p-4">
+            <img
+              src={imageSrc}
+              alt={attachment.originalName}
+              className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
+            />
+          </div>
+        )}
+
         {/* Word — WordViewer */}
         {!loading && isDocx && wordHtml !== null && (
           <WordViewer content={wordHtml} fileName={attachment.originalName} />
@@ -595,7 +618,7 @@ export default function AttachmentsManager({
     } else {
       setUploadError(
         data.error === "FILE_TOO_LARGE"    ? "ファイルサイズは5MB以下にしてください"
-        : data.error === "INVALID_FILE_TYPE" ? "対応ファイル形式: Word / PDF / Markdown / HTML"
+        : data.error === "INVALID_FILE_TYPE" ? "対応ファイル形式: Word / PDF / Markdown / HTML / 画像(PNG,JPG,SVG,WebP)"
         : "アップロードに失敗しました"
       );
     }
@@ -675,7 +698,7 @@ export default function AttachmentsManager({
             <input
               ref={fileInputRef}
               type="file"
-              accept=".docx,.doc,.pdf,.md,.markdown,.html,.htm"
+              accept=".docx,.doc,.pdf,.md,.markdown,.html,.htm,.png,.jpg,.jpeg,.svg,.webp,.ico"
               className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }}
             />
@@ -688,7 +711,7 @@ export default function AttachmentsManager({
               <>
                 <div className="text-2xl mb-2">📁</div>
                 <p className="text-sm font-medium text-slate-600">クリックまたはドラッグ&ドロップ</p>
-                <p className="text-xs text-slate-400 mt-1">Word / PDF / Markdown / HTML — 最大5MB</p>
+                <p className="text-xs text-slate-400 mt-1">Word / PDF / Markdown / HTML / 画像(PNG,JPG,SVG,WebP,ICO) — 最大5MB（画像は2MB）</p>
               </>
             )}
           </div>
@@ -714,7 +737,7 @@ export default function AttachmentsManager({
         <div className="text-center py-10 text-slate-400">
           <div className="text-3xl mb-2">📂</div>
           <p className="text-sm">添付資料がありません</p>
-          {isAdmin && <p className="text-xs mt-1">Word / PDF / Markdown / HTMLをアップロードしてください</p>}
+          {isAdmin && <p className="text-xs mt-1">Word / PDF / Markdown / HTML / 画像をアップロードしてください</p>}
         </div>
       ) : (
         <div className="space-y-2">
@@ -729,8 +752,18 @@ export default function AttachmentsManager({
                 onClick={() => setViewing(att)}
                 className="bg-white border border-slate-100 rounded-xl p-4 flex items-start gap-3 cursor-pointer hover:border-[#1D6FA4]/40 hover:shadow-sm transition-all group"
               >
-                {/* アイコン */}
-                <span className="text-2xl shrink-0 mt-0.5">{typeCfg.icon}</span>
+                {/* アイコン（画像はサムネイル表示）*/}
+                {isImageAttachment(att) ? (
+                  <div className="w-10 h-10 rounded-lg border border-slate-200 overflow-hidden shrink-0 bg-slate-50">
+                    <img
+                      src={`/api/projects/${projectId}/attachments/${att.id}?action=preview`}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-2xl shrink-0 mt-0.5">{typeCfg.icon}</span>
+                )}
 
                 {/* メイン情報 */}
                 <div className="flex-1 min-w-0">

@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     // PNG / JPG / SVG / WebP のみ
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!["png", "jpg", "jpeg", "svg", "webp"].includes(ext))
+    if (!["png", "jpg", "jpeg", "svg", "webp", "ico"].includes(ext))
       return NextResponse.json({ error: "INVALID_FILE_TYPE" }, { status: 400 });
 
     // 既存アイコンを削除

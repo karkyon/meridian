@@ -8,7 +8,7 @@ import { existsSync } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
 
-export type SupportedFileType = "md" | "docx" | "doc" | "pdf" | "html";
+export type SupportedFileType = "md" | "docx" | "doc" | "pdf" | "html" | "png" | "jpg" | "jpeg" | "svg" | "webp" | "ico";
 
 // Prisma AttachmentType enum に対応する型
 export type AttachmentFileType = "word" | "pdf" | "markdown" | "html" | "other";
@@ -24,7 +24,8 @@ export interface UploadedFile {
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "/home/karkyon/projects/meridian/uploads";
 
-export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+export const MAX_FILE_SIZE       = 5 * 1024 * 1024; // 5MB（ドキュメント）
+export const MAX_IMAGE_FILE_SIZE = 2 * 1024 * 1024; // 2MB（画像）
 
 export const ALLOWED_MIME_TYPES: Record<string, SupportedFileType> = {
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
@@ -33,6 +34,14 @@ export const ALLOWED_MIME_TYPES: Record<string, SupportedFileType> = {
   "text/markdown": "md",
   "text/plain": "md",
   "text/html": "html",
+  // 画像
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/svg+xml": "svg",
+  "image/webp": "webp",
+  "image/x-icon": "ico",
+  "image/vnd.microsoft.icon": "ico",
 };
 
 const ALLOWED_EXTENSIONS: Record<string, SupportedFileType> = {
@@ -43,7 +52,23 @@ const ALLOWED_EXTENSIONS: Record<string, SupportedFileType> = {
   ".pdf": "pdf",
   ".html": "html",
   ".htm": "html",
+  // 画像
+  ".png": "png",
+  ".jpg": "jpg",
+  ".jpeg": "jpeg",
+  ".svg": "svg",
+  ".webp": "webp",
+  ".ico": "ico",
 };
+
+// 画像ファイルタイプのセット
+export const IMAGE_FILE_TYPES = new Set<SupportedFileType>([
+  "png", "jpg", "jpeg", "svg", "webp", "ico",
+]);
+
+export function isImageFileType(fileType: SupportedFileType | "other"): boolean {
+  return IMAGE_FILE_TYPES.has(fileType as SupportedFileType);
+}
 
 export function getFileType(filename: string): SupportedFileType | null {
   const ext = path.extname(filename).toLowerCase();
@@ -65,6 +90,13 @@ export function toAttachmentType(fileType: SupportedFileType | "other"): Attachm
     pdf: "pdf",
     md: "markdown",
     html: "html",
+    // 画像は "other" にマップ（Prisma enum に image がないため）
+    png: "other",
+    jpg: "other",
+    jpeg: "other",
+    svg: "other",
+    webp: "other",
+    ico: "other",
     other: "other",
   };
   return map[fileType] ?? "other";
@@ -107,6 +139,14 @@ export async function extractText(
         return "[PDFの内容を抽出できませんでした]";
       }
     }
+    // 画像はテキスト抽出なし
+    case "png":
+    case "jpg":
+    case "jpeg":
+    case "svg":
+    case "webp":
+    case "ico":
+      return "";
     default:
       return "";
   }

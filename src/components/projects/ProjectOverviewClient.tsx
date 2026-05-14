@@ -56,8 +56,8 @@ export default function ProjectOverviewClient({ project, role }: Props) {
       return;
     }
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
-    if (!["png", "jpg", "jpeg", "svg", "webp"].includes(ext)) {
-      setIconError("PNG / JPG / SVG / WebP のみ対応しています");
+    if (!["png", "jpg", "jpeg", "svg", "webp", "ico"].includes(ext)) {
+      setIconError("PNG / JPG / SVG / WebP / ICO のみ対応しています");
       return;
     }
 
@@ -196,7 +196,7 @@ export default function ProjectOverviewClient({ project, role }: Props) {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon,.ico"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -223,7 +223,7 @@ export default function ProjectOverviewClient({ project, role }: Props) {
                   </button>
                 )}
                 <p className="text-[10px] text-slate-400 leading-relaxed">
-                  PNG / JPG / SVG / WebP<br />最大2MB
+                  PNG / JPG / SVG / WebP / ICO<br />最大2MB
                 </p>
                 {iconError && (
                   <p className="text-[10px] text-red-500 bg-red-50 px-2 py-1 rounded-lg">
