@@ -221,6 +221,34 @@ export default function ProjectOverviewClient({ project, role }: Props) {
   const [saving, setSaving]             = useState(false);
   const [error, setError]               = useState<string | null>(null);
 
+  // AI自動入力
+  const [autofilling, setAutofilling]   = useState(false);
+  const [autofillResult, setAutofillResult] = useState<{
+    consistency_notes: string | null;
+    applied: { tech_stack_count: number; key_features_count: number };
+  } | null>(null);
+  const [autofillError, setAutofillError] = useState<string | null>(null);
+
+  async function handleAutofill() {
+    setAutofilling(true);
+    setAutofillError(null);
+    setAutofillResult(null);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/overview/autofill`, { method: "POST" });
+      const d = await res.json();
+      if (!res.ok) {
+        setAutofillError(d.message ?? d.error ?? "自動入力に失敗しました");
+        return;
+      }
+      setAutofillResult({ consistency_notes: d.consistency_notes, applied: d.applied });
+      router.refresh();
+    } catch {
+      setAutofillError("通信エラーが発生しました");
+    } finally {
+      setAutofilling(false);
+    }
+  }
+
   // README強化フィールド
   const [tagline, setTagline]           = useState(project.tagline ?? "");
   const [purpose, setPurpose]           = useState(project.purpose ?? "");
@@ -328,14 +356,33 @@ export default function ProjectOverviewClient({ project, role }: Props) {
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold text-slate-700">プロジェクト概要</h2>
         {isAdmin && !editing && (
-          <button
-            onClick={() => setEditing(true)}
-            className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            ✏️ 編集
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleAutofill}
+              disabled={autofilling}
+              className="text-xs px-3 py-1.5 border border-[#1D6FA4]/30 bg-[#1D6FA4]/5 rounded-lg text-[#1D6FA4] hover:bg-[#1D6FA4]/10 transition-colors disabled:opacity-50"
+            >
+              {autofilling ? "🤖 資料・GitHubを解析中..." : "🤖 AIで自動入力"}
+            </button>
+            <button
+              onClick={() => setEditing(true)}
+              className="text-xs px-3 py-1.5 border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              ✏️ 編集
+            </button>
+          </div>
         )}
       </div>
+
+      {autofillError && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg whitespace-pre-wrap">{autofillError}</p>}
+      {autofillResult && (
+        <div className="text-xs text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg space-y-1">
+          <p>✅ 自動入力しました（技術スタック {autofillResult.applied.tech_stack_count}件 / 主要機能 {autofillResult.applied.key_features_count}件）</p>
+          {autofillResult.consistency_notes && (
+            <p className="text-amber-700">⚠️ 資料とコードの不整合: {autofillResult.consistency_notes}</p>
+          )}
+        </div>
+      )}
 
       {error && <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg whitespace-pre-wrap">{error}</p>}
 
