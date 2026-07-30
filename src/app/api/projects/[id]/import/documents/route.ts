@@ -194,14 +194,13 @@ async function processItem(
   const extractedText = file.extractedText ?? null;
 
   if (target.kind === "standard") {
-    let doc = await prisma.document.findUnique({
+    // upsertで find-then-create のレースコンディションを回避する
+    // （Promise.allSettledで同一docTypeの複数ファイルが並列処理されるとfindUnique後のcreateが競合しうるため）
+    const doc = await prisma.document.upsert({
       where: { projectId_docType: { projectId, docType: target.docType as never } },
+      update: {},
+      create: { projectId, docType: target.docType as never, content: "", completeness: 0, version: 1 },
     });
-    if (!doc) {
-      doc = await prisma.document.create({
-        data: { projectId, docType: target.docType as never, content: "", completeness: 0, version: 1 },
-      });
-    }
 
     const fileRecord = await prisma.documentFile.create({
       data: {
@@ -232,22 +231,30 @@ async function processItem(
     : null;
   const typeLabel = target.customTypeLabel ?? globalType?.label ?? projectType?.label ?? target.customTypeKey;
 
-  let customDoc = await prisma.customDocument.findUnique({
-    where: { projectId_customTypeKey: { projectId, customTypeKey: target.customTypeKey } },
-  });
-  if (!customDoc) {
-    customDoc = await prisma.customDocument.create({
-      data: {
-        projectId,
-        customTypeKey: target.customTypeKey,
-        customTypeLabel: typeLabel,
-        content: "",
-        version: 1,
-        completeness: 0,
-        createdBy,
-      },
+  // CustomDocument.customTypeKey は CustomDocType.key への外部キー制約があるため、
+  // パイプライン由来の新規キーは事前にグローバル登録しておく必要がある（upsertで冪等に）
+  if (!globalType) {
+    await prisma.customDocType.upsert({
+      where: { key: target.customTypeKey },
+      update: {},
+      create: { key: target.customTypeKey, label: typeLabel },
     });
   }
+
+  // upsertで find-then-create のレースコンディションを回避する
+  const customDoc = await prisma.customDocument.upsert({
+    where: { projectId_customTypeKey: { projectId, customTypeKey: target.customTypeKey } },
+    update: {},
+    create: {
+      projectId,
+      customTypeKey: target.customTypeKey,
+      customTypeLabel: typeLabel,
+      content: "",
+      version: 1,
+      completeness: 0,
+      createdBy,
+    },
+  });
 
   const fileRecord = await prisma.customDocumentFile.create({
     data: {
