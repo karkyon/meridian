@@ -518,10 +518,17 @@ export default function SettingsClient({
     setTestingGithub(true);
     setGithubTestResult(null);
     try {
-      const res = await fetch("/api/settings/github/test");
+      const typedPat = githubPat.trim();
+      const res = typedPat
+        ? await fetch("/api/settings/github/test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pat: typedPat }),
+          })
+        : await fetch("/api/settings/github/test");
       const data = await res.json();
       setGithubTestResult({
-        ok: res.ok && data.ok,
+        ok: res.ok && !!data.ok,
         message: data.message ?? (res.ok ? "接続成功" : "接続失敗"),
       });
     } catch {
@@ -644,13 +651,17 @@ export default function SettingsClient({
                 <span>🐙</span> GitHub PAT設定
               </h2>
               <div className="flex items-center gap-2">
-                {hasGithubPat && (
+                {(hasGithubPat || githubPat.trim().length > 0) && (
                   <button
                     onClick={testGithub}
                     disabled={testingGithub}
                     className="text-xs text-[#1D6FA4] hover:underline disabled:opacity-50"
                   >
-                    {testingGithub ? "テスト中..." : "接続テスト"}
+                    {testingGithub
+                      ? "テスト中..."
+                      : githubPat.trim().length > 0
+                        ? "入力中のトークンをテスト"
+                        : "接続テスト"}
                   </button>
                 )}
                 <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${

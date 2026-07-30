@@ -106,8 +106,17 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const body = await req.json();
     const parsed = updateSchema.safeParse(body);
     if (!parsed.success) {
+      const flat = parsed.error.flatten();
+      const fieldMsgs = Object.entries(flat.fieldErrors)
+        .filter(([, msgs]) => msgs && msgs.length > 0)
+        .map(([field, msgs]) => `${field}: ${msgs![0]}`)
+        .join(" / ");
       return NextResponse.json(
-        { error: "VALIDATION_ERROR", details: parsed.error.flatten() },
+        {
+          error: "VALIDATION_ERROR",
+          message: fieldMsgs || "入力内容に誤りがあります",
+          details: flat,
+        },
         { status: 400 }
       );
     }

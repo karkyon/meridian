@@ -324,12 +324,20 @@ export default function ProjectOverviewClient({ project, role }: Props) {
     setSaving(true);
     setError(null);
     try {
+      // リポジトリURLの正規化: "owner/repo" 形式の短縮入力を
+      // フルURL(https://github.com/owner/repo)に自動変換する
+      const trimmedRepo = repositoryUrl.trim();
+      const normalizedRepo =
+        trimmedRepo && !/^https?:\/\//i.test(trimmedRepo) && /^[\w.-]+\/[\w.-]+$/.test(trimmedRepo)
+          ? `https://github.com/${trimmedRepo}`
+          : trimmedRepo;
+
       const res = await fetch(`/api/projects/${project.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name, description, status, category,
-          repository_url: repositoryUrl, notes,
+          repository_url: normalizedRepo, notes,
           tagline, purpose,
           target_users: targetUsers, scope,
           key_features: keyFeatures.filter((f) => f.title.trim().length > 0),
@@ -343,9 +351,16 @@ export default function ProjectOverviewClient({ project, role }: Props) {
       });
       if (!res.ok) {
         const d = await res.json();
-        setError(d.message ?? d.error ?? "保存失敗");
+        const fieldErrors = d.details?.fieldErrors
+          ? Object.entries(d.details.fieldErrors as Record<string, string[]>)
+              .filter(([, msgs]) => msgs?.length)
+              .map(([field, msgs]) => `${field}: ${msgs[0]}`)
+              .join(" / ")
+          : null;
+        setError(d.message ?? fieldErrors ?? d.error ?? "保存失敗");
         return;
       }
+      setRepositoryUrl(normalizedRepo);
       setEditing(false);
       router.refresh();
     } finally { setSaving(false); }
@@ -508,7 +523,11 @@ export default function ProjectOverviewClient({ project, role }: Props) {
         <div className="space-y-1">
           <label className={label}>リポジトリURL</label>
           {editing
-            ? <input type="url" value={repositoryUrl} onChange={(e) => setRepositoryUrl(e.target.value)} className={field} />
+            ? <>
+                <input type="text" value={repositoryUrl} onChange={(e) => setRepositoryUrl(e.target.value)}
+                  placeholder="https://github.com/owner/repo または owner/repo" className={field} />
+                <p className="text-[10px] text-slate-400">「owner/repo」の短縮形式でもOK（自動でGitHub URLに変換されます）</p>
+              </>
             : project.repositoryUrl
               ? <a href={project.repositoryUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-[#1D6FA4] hover:underline">{project.repositoryUrl}</a>
               : <p className="text-sm text-slate-300">未設定</p>}
