@@ -36,9 +36,15 @@ export async function GET(req: NextRequest, { params }: Params) {
 
     const docMap = new Map(docs.map((d: any) => [d.customTypeKey, d]));
 
-    // 全タイプをマージして返す
+    // グローバルカテゴリは、このプロジェクトに実際のドキュメントが存在する場合のみ表示する。
+    // （全プロジェクト共有のグローバルカテゴリを無条件表示すると、一括インポート等で
+    //   大量に作られたカテゴリが無関係なプロジェクトにも全て表示されてしまうため）
+    // プロジェクト固有タイプ(scope: project)は、このプロジェクトの管理者が明示的に
+    // 追加したものなので、ドキュメント未作成でも常に表示する。
+    const visibleGlobalTypes = globalTypes.filter((t: any) => docMap.has(t.key));
+
     const allTypes = [
-      ...globalTypes.map((t: any) => ({ key: t.key, label: t.label, sortOrder: t.sortOrder, scope: "global" as const })),
+      ...visibleGlobalTypes.map((t: any) => ({ key: t.key, label: t.label, sortOrder: t.sortOrder, scope: "global" as const })),
       ...projectTypes.map((t: any) => ({ key: t.key, label: t.label, sortOrder: t.sortOrder, scope: "project" as const })),
     ];
 

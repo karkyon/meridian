@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type CustomDocEntry = {
@@ -17,12 +18,16 @@ type CustomDocEntry = {
   } | null;
 };
 
+type GlobalType = { key: string; label: string };
+
 export default function CustomDocsTab({ projectId, role }: { projectId: string; role: string }) {
   const isAdmin = role === "admin";
+  const router = useRouter();
   const [entries, setEntries] = useState<CustomDocEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newLabel, setNewLabel] = useState("");
+  const [query, setQuery] = useState("");
+  const [allTypes, setAllTypes] = useState<GlobalType[]>([]);
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
@@ -31,22 +36,47 @@ export default function CustomDocsTab({ projectId, role }: { projectId: string; 
       .then((d) => { setEntries(d.customDocs ?? []); setLoading(false); });
   }, [projectId]);
 
-  const handleAdd = async () => {
-    if (!newLabel.trim()) return;
+  const openAddForm = () => {
+    setShowAddForm(true);
+    setQuery("");
+    if (allTypes.length === 0) {
+      fetch(`/api/custom-doc-types`)
+        .then((r) => r.json())
+        .then((d) => setAllTypes((d.types ?? []).map((t: any) => ({ key: t.key, label: t.label }))));
+    }
+  };
+
+  const existingKeys = new Set(entries.map((e) => e.key));
+  const trimmedQuery = query.trim();
+  const suggestions = trimmedQuery
+    ? allTypes
+        .filter((t) => t.label.toLowerCase().includes(trimmedQuery.toLowerCase()) && !existingKeys.has(t.key))
+        .slice(0, 8)
+    : [];
+  const exactLabelMatch = allTypes.some((t) => t.label.toLowerCase() === trimmedQuery.toLowerCase());
+
+  const selectExisting = (key: string) => {
+    setShowAddForm(false);
+    router.push(`/projects/${projectId}/custom-docs/${key}`);
+  };
+
+  const createNew = async () => {
+    const label = trimmedQuery;
+    if (!label) return;
     setAdding(true);
-    const key = newLabel.trim().toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_");
-    const res = await fetch(`/api/projects/${projectId}/custom-docs`, {
+    const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "custom";
+    const key = `${slug}_${Date.now().toString(36)}`;
+    const res = await fetch(`/api/custom-doc-types`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: `${key}_${Date.now().toString(36)}`, label: newLabel.trim() }),
+      body: JSON.stringify({ key, label }),
     });
+    setAdding(false);
     if (res.ok) {
       const data = await res.json();
-      setEntries((prev) => [...prev, { key: data.type.key, label: data.type.label, sortOrder: data.type.sortOrder, scope: "project", doc: null }]);
-      setNewLabel("");
       setShowAddForm(false);
+      router.push(`/projects/${projectId}/custom-docs/${data.type.key}`);
     }
-    setAdding(false);
   };
 
   if (loading) return <div className="py-8 text-center text-slate-400 text-sm">読み込み中...</div>;
@@ -57,7 +87,7 @@ export default function CustomDocsTab({ projectId, role }: { projectId: string; 
         <p className="text-xs text-slate-500">技術スタック・環境設計など追加カテゴリのドキュメント管理</p>
         {isAdmin && (
           <button
-            onClick={() => setShowAddForm(!showAddForm)}
+            onClick={() => (showAddForm ? setShowAddForm(false) : openAddForm())}
             className="text-xs px-3 py-1.5 border border-[#1D6FA4] text-[#1D6FA4] rounded-lg hover:bg-[#1D6FA4]/5"
           >
             + カテゴリ追加
@@ -66,22 +96,46 @@ export default function CustomDocsTab({ projectId, role }: { projectId: string; 
       </div>
 
       {showAddForm && (
-        <div className="flex gap-2 mb-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-          <input
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            placeholder="カテゴリ名（例: CI/CD設計書）"
-            className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:border-[#1D6FA4] focus:outline-none bg-white"
-            autoFocus
-          />
-          <button onClick={handleAdd} disabled={adding || !newLabel.trim()}
-            className="text-xs px-4 py-1.5 bg-[#1D6FA4] text-white rounded-lg hover:bg-[#1a5f8e] disabled:opacity-50">
-            {adding ? "追加中..." : "追加"}
-          </button>
-          <button onClick={() => setShowAddForm(false)} className="text-xs px-3 py-1.5 border border-slate-200 text-slate-500 rounded-lg">
-            キャンセル
-          </button>
+        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+          <div className="flex gap-2">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="カテゴリ名で検索、または新規作成（例: CI/CD設計書）"
+              className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:border-[#1D6FA4] focus:outline-none bg-white"
+              autoFocus
+            />
+            <button onClick={() => setShowAddForm(false)} className="text-xs px-3 py-1.5 border border-slate-200 text-slate-500 rounded-lg shrink-0">
+              キャンセル
+            </button>
+          </div>
+
+          {trimmedQuery && (
+            <div className="mt-2 bg-white border border-slate-200 rounded-lg shadow-sm max-h-56 overflow-y-auto">
+              {suggestions.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => selectExisting(t.key)}
+                  className="w-full text-left text-sm px-3 py-2 hover:bg-slate-50 flex items-center justify-between"
+                >
+                  <span>{t.label}</span>
+                  <span className="text-[10px] text-slate-400 shrink-0 ml-2">既存カテゴリを使う</span>
+                </button>
+              ))}
+              {!exactLabelMatch && (
+                <button
+                  onClick={createNew}
+                  disabled={adding}
+                  className="w-full text-left text-sm px-3 py-2 hover:bg-slate-50 text-[#1D6FA4] font-medium disabled:opacity-50 border-t border-slate-100"
+                >
+                  {adding ? "作成中..." : `+ 新規カテゴリとして「${trimmedQuery}」を作成`}
+                </button>
+              )}
+              {suggestions.length === 0 && exactLabelMatch && (
+                <div className="text-xs text-slate-400 px-3 py-2">一致する既存カテゴリはこのプロジェクトに追加済みです</div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

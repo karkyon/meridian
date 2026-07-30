@@ -28,7 +28,7 @@ const STANDARD_DOC_TYPES = [
 ] as const;
 
 // 通常アップロードAPI（documents/[type]/upload, custom-docs/[key]/upload）と同一の許可拡張子
-const ALLOWED_EXTENSIONS = ["docx", "doc", "pdf", "md", "markdown", "html", "htm"];
+const ALLOWED_EXTENSIONS = ["docx", "doc", "pdf", "md", "markdown", "html", "htm", "xlsx", "xls"];
 
 const fileSchema = z.object({
   originalName: z.string().min(1).max(255),
@@ -119,23 +119,23 @@ export async function POST(req: NextRequest, { params }: Params) {
     const imported: ImportedResult[] = [];
     const failed: FailedResult[] = [];
 
-    const results = await Promise.allSettled(
-      parsed.data.items.map((item, index) => processItem(item, index, params.id, createdBy))
-    );
-
-    results.forEach((result, index) => {
-      if (result.status === "fulfilled") {
-        imported.push(result.value);
-      } else {
-        const reason = result.reason;
+    // 逐次処理にする（並列処理だと同一docType/customTypeKeyの
+    // find-or-create/upsertがPrisma側で依然として競合しうるため。1バッチ最大10件のみなので
+    // 逐次処理による速度低下は無視できるレベル）
+    for (let index = 0; index < parsed.data.items.length; index++) {
+      const item = parsed.data.items[index];
+      try {
+        const value = await processItem(item, index, params.id, createdBy);
+        imported.push(value);
+      } catch (reason) {
         failed.push({
           index,
-          target: parsed.data.items[index]?.target ?? null,
+          target: item?.target ?? null,
           error: reason instanceof Error ? reason.message : String(reason),
           code: reason instanceof ImportItemError ? reason.code : undefined,
         });
       }
-    });
+    }
 
     writeAuditLog({
       userId: createdBy,
