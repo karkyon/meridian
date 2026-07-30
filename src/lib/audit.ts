@@ -6,7 +6,8 @@ type AuditAction =
   "WBS_TASK_CREATE" | "WBS_TASK_UPDATE" | "WBS_TASK_DELETE" |
   "PRIORITY_UPDATE" | "USER_CREATE" | "USER_DELETE" |
   "USER_ROLE_CHANGE" | "USER_UNLOCK" | "SESSION_REVOKE" |
-  "SETTINGS_UPDATE" | "API_KEY_UPDATE";
+  "SETTINGS_UPDATE" | "API_KEY_UPDATE" |
+  "IMPORT_KEY_CREATE" | "IMPORT_KEY_REVOKE";
 import type { NextRequest } from "next/server";
 export interface AuditLogParams {
   userId: string; userEmail: string; action: AuditAction;

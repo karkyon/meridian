@@ -118,6 +118,8 @@ enum AuditAction {
   SETTINGS_UPDATE
   API_KEY_UPDATE
   ANALYSIS_RUN
+  IMPORT_KEY_CREATE
+  IMPORT_KEY_REVOKE
   @@map("audit_action")
 }
 
@@ -204,6 +206,7 @@ model User {
   uploadedCustomFiles     CustomDocumentFile[] @relation("CustomDocFileCreatedBy")
   uploadedDocFiles        DocumentFile[]       @relation("DocFileCreatedBy")
   createdAnalyses         ProjectAnalysis[]    @relation("AnalysisCreatedBy")
+  createdImportApiKeys    ImportApiKey[]       @relation("ImportApiKeyCreatedBy")
 
   @@index([email], map: "idx_users_email")
   @@index([lockedUntil], map: "idx_users_locked_until")
@@ -740,4 +743,20 @@ model AnalysisFeature {
   @@index([analysisId], map: "idx_analysis_features_analysis")
   @@index([analysisId, status], map: "idx_analysis_features_status")
   @@map("analysis_features")
+}
+
+model ImportApiKey {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  label      String    @db.VarChar(100)
+  keyHash    String    @unique @map("key_hash") @db.VarChar(64)
+  keyPrefix  String    @map("key_prefix") @db.VarChar(12)
+  createdBy  String?   @map("created_by") @db.Uuid
+  lastUsedAt DateTime? @map("last_used_at") @db.Timestamptz
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  creator User? @relation("ImportApiKeyCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([createdBy], map: "idx_import_api_keys_created_by")
+  @@map("import_api_keys")
 }

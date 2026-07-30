@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
@@ -18,4 +18,17 @@ export function decryptApiKey(encrypted: string, iv: string): string {
   const decipher = createDecipheriv(ALGORITHM, getKey(), Buffer.from(iv, "hex"), { authTagLength: AUTH_TAG_LENGTH });
   decipher.setAuthTag(Buffer.from(authTag, "hex"));
   return Buffer.concat([decipher.update(Buffer.from(ciphertext, "hex")), decipher.final()]).toString("utf8");
+}
+
+// インポート専用APIキー生成（生値はDBに残さずハッシュのみ保存）
+export function generateImportApiKey(): { rawKey: string; keyHash: string; keyPrefix: string } {
+  const token = randomBytes(32).toString("hex");
+  const rawKey = `mrd_imp_${token}`;
+  const keyHash = createHash("sha256").update(rawKey).digest("hex");
+  const keyPrefix = rawKey.slice(0, 12);
+  return { rawKey, keyHash, keyPrefix };
+}
+
+export function hashImportApiKey(rawKey: string): string {
+  return createHash("sha256").update(rawKey).digest("hex");
 }

@@ -3,6 +3,7 @@
 // SettingsClient に「💰 APIコスト」タブを追加した完全版
 
 import { useState, useEffect, useCallback } from "react";
+import ImportKeysPanel from "@/components/settings/ImportKeysPanel";
 
 // ── 型定義 ──────────────────────────────────────────────────────
 type UsageSummary = {
@@ -462,7 +463,7 @@ export default function SettingsClient({
   };
 }) {
   // ── タブ状態 ────────────────────────────────────────────────────
-  type Tab = "general" | "usage";
+  type Tab = "general" | "usage" | "import";
   const [activeTab, setActiveTab] = useState<Tab>("general");
 
   // ── 既存の設定フォーム状態（変更なし） ──────────────────────────
@@ -556,6 +557,16 @@ export default function SettingsClient({
           }`}
         >
           💰 APIコスト
+        </button>
+        <button
+          onClick={() => setActiveTab("import")}
+          className={`flex-1 text-sm py-2 rounded-lg font-medium transition-colors ${
+            activeTab === "import"
+              ? "bg-white text-slate-800 shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          }`}
+        >
+          🔑 インポート連携
         </button>
       </div>
 
@@ -758,6 +769,13 @@ export default function SettingsClient({
 
       {/* ── APIコストタブ ── */}
       {activeTab === "usage" && <ApiCostDashboard />}
+
+      {/* ── インポート連携タブ ── */}
+      {activeTab === "import" && (
+        <div className="space-y-4">
+          <ImportKeysPanel />
+        </div>
+      )}
 
     </div>
   );
