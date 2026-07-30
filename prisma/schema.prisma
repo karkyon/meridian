@@ -120,6 +120,7 @@ enum AuditAction {
   ANALYSIS_RUN
   IMPORT_KEY_CREATE
   IMPORT_KEY_REVOKE
+  IMPORT_DOCUMENTS_RUN
   @@map("audit_action")
 }
 

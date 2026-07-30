@@ -1,7 +1,7 @@
 // src/app/api/projects/[id]/tech-stacks/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { withAdmin, withAuth } from "@/lib/api-helpers";
+import { withAdmin, withAuth, withAdminOrImportKey } from "@/lib/api-helpers";
 import { z } from "zod";
 
 type Params = { params: { id: string } };
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest, { params }: Params) {
 // 一括: { items: [...] }
 // ------------------------------------------------------------------
 export async function POST(req: NextRequest, { params }: Params) {
-  return withAdmin(req, async () => {
+  return withAdminOrImportKey(req, async () => {
     const project = await prisma.project.findUnique({
       where: { id: params.id },
       select: { id: true },

@@ -7,7 +7,7 @@ type AuditAction =
   "PRIORITY_UPDATE" | "USER_CREATE" | "USER_DELETE" |
   "USER_ROLE_CHANGE" | "USER_UNLOCK" | "SESSION_REVOKE" |
   "SETTINGS_UPDATE" | "API_KEY_UPDATE" |
-  "IMPORT_KEY_CREATE" | "IMPORT_KEY_REVOKE";
+  "IMPORT_KEY_CREATE" | "IMPORT_KEY_REVOKE" | "IMPORT_DOCUMENTS_RUN";
 import type { NextRequest } from "next/server";
 export interface AuditLogParams {
   userId: string; userEmail: string; action: AuditAction;

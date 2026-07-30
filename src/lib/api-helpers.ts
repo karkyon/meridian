@@ -49,7 +49,7 @@ export function apiError(message: string, status: number, code?: string) {
   return NextResponse.json({ error: message, ...(code ? { code } : {}) }, { status });
 }
 
-export type ImportKeyInfo = { id: string; label: string };
+export type ImportKeyInfo = { id: string; label: string; createdBy: string | null };
 type ImportKeyHandler = (req: NextRequest, keyInfo: ImportKeyInfo) => Promise<NextResponse>;
 
 // 外部スキャンパイプライン等からのインポートAPI呼び出し専用認証
@@ -77,5 +77,29 @@ export async function withImportKey(
     data: { lastUsedAt: new Date() },
   });
 
-  return handler(req, { id: record.id, label: record.label });
+  return handler(req, { id: record.id, label: record.label, createdBy: record.createdBy });
+}
+
+// 管理者セッション or インポート専用APIキー のどちらでも通す統合ヘルパー
+// パイプラインからの無人実行と、管理画面からの手動実行の両方に対応するために使用する
+export type AuthContext =
+  | { via: "session"; user: SessionUser }
+  | { via: "importKey"; keyInfo: ImportKeyInfo };
+
+type CombinedHandler = (
+  req: NextRequest,
+  ctx: AuthContext,
+  params?: Record<string, string>
+) => Promise<NextResponse>;
+
+export async function withAdminOrImportKey(
+  req: NextRequest,
+  handler: CombinedHandler,
+  params?: Record<string, string>
+): Promise<NextResponse> {
+  const authHeader = req.headers.get("authorization") ?? "";
+  if (authHeader.startsWith("Bearer mrd_imp_")) {
+    return withImportKey(req, async (req, keyInfo) => handler(req, { via: "importKey", keyInfo }, params));
+  }
+  return withAdmin(req, async (req, user) => handler(req, { via: "session", user }, params), params);
 }
