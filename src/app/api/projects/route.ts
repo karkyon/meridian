@@ -136,6 +136,26 @@ export async function POST(req: NextRequest) {
       })),
     });
 
+    // README（プロジェクト説明書）カスタムドキュメントをテンプレート付きで初期作成
+    // ※ カスタムカテゴリは「実データがあるものだけ一覧表示」される仕様のため、
+    //   ここで空でも作成しておかないと概要タブにREADMEが出現しない
+    const readmeType = await prisma.customDocType.findUnique({ where: { key: "readme" } });
+    if (readmeType) {
+      await prisma.customDocument.upsert({
+        where: { projectId_customTypeKey: { projectId: project.id, customTypeKey: "readme" } },
+        update: {},
+        create: {
+          projectId: project.id,
+          customTypeKey: "readme",
+          customTypeLabel: readmeType.label,
+          content: `# ${name}\n\n## 概要\n（このプロジェクトの一言概要をここに記載してください）\n\n## 背景・目的\n\n\n## 対象ユーザー\n\n\n## 主要機能\n- \n\n## アーキテクチャ概要\n\n\n## ディレクトリ構成\n\`\`\`\n\n\`\`\`\n\n## 外部サービス・API依存\n\n\n## 既知の課題・制限事項\n\n\n## ロードマップ\n`,
+          completeness: 0,
+          version: 1,
+          createdBy: user.id,
+        },
+      });
+    }
+
     writeAuditLog({
       userId: user.id,
       userEmail: user.email,

@@ -18,6 +18,10 @@ export default async function ProjectOverviewPage({ params }: Params) {
       createdAt: true, updatedAt: true,
       progressCache: true, docCompleteness: true,
       iconUrl: true,
+      tagline: true, purpose: true, targetUsers: true, scope: true,
+      keyFeatures: true, setupInstructions: true, envVars: true,
+      externalDependencies: true, license: true, roadmap: true,
+      knownIssues: true, securityNotes: true,
     },
   });
   if (!project) notFound();

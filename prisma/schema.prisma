@@ -278,6 +278,21 @@ model Project {
   techStack       Json          @default("[]") @map("tech_stack") @db.JsonB
   repositoryUrl   String?       @map("repository_url") @db.VarChar(500)
   notes           String?       @db.Text
+
+  // ── README強化フィールド（概要タブ拡張） ──────────────────────
+  tagline              String?  @db.VarChar(300)
+  purpose              String?  @db.Text
+  targetUsers          String?  @map("target_users") @db.Text
+  scope                String?  @db.Text
+  keyFeatures          Json     @default("[]") @map("key_features") @db.JsonB
+  setupInstructions    String?  @map("setup_instructions") @db.Text
+  envVars              Json     @default("[]") @map("env_vars") @db.JsonB
+  externalDependencies Json     @default("[]") @map("external_dependencies") @db.JsonB
+  license              String?  @db.VarChar(100)
+  roadmap              String?  @db.Text
+  knownIssues          String?  @map("known_issues") @db.Text
+  securityNotes        String?  @map("security_notes") @db.Text
+
   priorityScore   Int           @default(50) @map("priority_score")
   priorityOrder   Int           @default(0) @map("priority_order")
   progressCache   Decimal       @default(0) @map("progress_cache") @db.Decimal(5, 2)
