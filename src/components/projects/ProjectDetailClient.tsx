@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import {
   Plus, ChevronRight, Zap, Paperclip, X,
@@ -151,27 +151,51 @@ function DocCard({
 // ============================================================
 function AddCategoryModal({
   projectId,
+  existingKeys,
   onClose,
   onAdded,
 }: {
   projectId: string;
+  existingKeys: Set<string>;
   onClose: () => void;
   onAdded: (newDoc: CustomDocType) => void;
 }) {
-  const [label, setLabel] = useState("");
+  const [query, setQuery] = useState("");
+  const [allTypes, setAllTypes] = useState<{ key: string; label: string }[]>([]);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleAdd = async () => {
-    if (!label.trim()) return;
+  useEffect(() => {
+    fetch(`/api/custom-doc-types`)
+      .then((r) => r.json())
+      .then((d) => setAllTypes((d.types ?? []).map((t: any) => ({ key: t.key, label: t.label }))));
+  }, []);
+
+  const trimmed = query.trim();
+  // 既にこのプロジェクトに追加済みのカテゴリも候補から除外せず表示する。
+  // （唯一の一致が追加済みカテゴリだった場合に候補が0件になり、サジェストが
+  //   全く機能していないように見えてしまうため。追加済みは選択不可で表示する）
+  const suggestions = trimmed
+    ? allTypes.filter((t) => t.label.toLowerCase().includes(trimmed.toLowerCase())).slice(0, 8)
+    : [];
+  const exactMatch = allTypes.some((t) => t.label.toLowerCase() === trimmed.toLowerCase());
+
+  const selectExisting = (t: { key: string; label: string }) => {
+    onAdded({ key: t.key, label: t.label, completeness: 0, version: 0, fileCount: 0, files: [] });
+    onClose();
+  };
+
+  const handleCreateNew = async () => {
+    if (!trimmed) return;
     setAdding(true);
     setError(null);
-    const key = `${label.trim().toLowerCase().replace(/[^a-z0-9]/g, "_").replace(/_+/g, "_")}_${Date.now().toString(36)}`;
+    const slug = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "custom";
+    const key = `${slug}_${Date.now().toString(36)}`;
     try {
-      const res = await fetch(`/api/projects/${projectId}/custom-docs`, {
+      const res = await fetch(`/api/custom-doc-types`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, label: label.trim() }),
+        body: JSON.stringify({ key, label: trimmed }),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -179,14 +203,7 @@ function AddCategoryModal({
         return;
       }
       const data = await res.json();
-      onAdded({
-        key: data.type.key,
-        label: data.type.label,
-        completeness: 0,
-        version: 1,
-        fileCount: 0,
-        files: [],
-      });
+      onAdded({ key: data.type.key, label: data.type.label, completeness: 0, version: 0, fileCount: 0, files: [] });
       onClose();
     } catch {
       setError("ネットワークエラーが発生しました");
@@ -208,14 +225,49 @@ function AddCategoryModal({
           <div>
             <label className="text-xs font-medium text-slate-500 mb-1.5 block">カテゴリ名 *</label>
             <input
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              placeholder="例: CI/CD設計書、インフラ構成図..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="入力して検索、無ければ新規作成できます"
               className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#1D6FA4] focus:outline-none focus:ring-2 focus:ring-[#1D6FA4]/20"
               autoFocus
             />
           </div>
+
+          {trimmed && (
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm max-h-56 overflow-y-auto -mt-2">
+              {suggestions.map((t) => {
+                const alreadyAdded = existingKeys.has(t.key);
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => !alreadyAdded && selectExisting(t)}
+                    disabled={alreadyAdded}
+                    className={`w-full text-left text-sm px-3 py-2.5 flex items-center justify-between ${
+                      alreadyAdded ? "text-slate-300 cursor-default" : "hover:bg-slate-50"
+                    }`}
+                  >
+                    <span>{t.label}</span>
+                    <span className="text-[10px] text-slate-400 shrink-0 ml-2">
+                      {alreadyAdded ? "追加済み" : "既存カテゴリを使う"}
+                    </span>
+                  </button>
+                );
+              })}
+              {suggestions.length === 0 && (
+                <div className="text-xs text-slate-400 px-3 py-2.5">一致する既存カテゴリはありません</div>
+              )}
+              {!exactMatch && (
+                <button
+                  onClick={handleCreateNew}
+                  disabled={adding}
+                  className="w-full text-left text-sm px-3 py-2.5 hover:bg-slate-50 text-[#1D6FA4] font-medium disabled:opacity-50 border-t border-slate-100"
+                >
+                  {adding ? "作成中..." : `+ 新規カテゴリとして「${trimmed}」を作成`}
+                </button>
+              )}
+            </div>
+          )}
+
           {error && (
             <p className="text-xs text-red-500 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
           )}
@@ -224,16 +276,13 @@ function AddCategoryModal({
               className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 font-medium">
               キャンセル
             </button>
-            <button onClick={handleAdd} disabled={adding || !label.trim()}
-              className="flex-1 py-2.5 rounded-xl bg-[#1A3A5C] text-white text-sm font-semibold hover:bg-[#2A527A] disabled:opacity-50 transition-colors">
-              {adding ? "追加中..." : "追加する"}
-            </button>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
 
 // ============================================================
 // メインコンポーネント
@@ -272,6 +321,7 @@ export default function ProjectDetailClient({
       {showAddModal && (
         <AddCategoryModal
           projectId={project.id}
+          existingKeys={new Set(customDocTypes.map((d) => d.key))}
           onClose={() => setShowAddModal(false)}
           onAdded={handleCategoryAdded}
         />

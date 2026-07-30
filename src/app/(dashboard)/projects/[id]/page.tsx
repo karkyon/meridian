@@ -28,6 +28,7 @@ export default async function ProjectDetailPage({ params }: Params) {
       customDocuments: {
         include: {
           customDocType: { select: { key: true, label: true } },
+          files: { select: { originalName: true, completeness: true, version: true }, orderBy: { createdAt: "desc" } },
           _count: { select: { files: true } },
         },
       },
@@ -71,17 +72,25 @@ export default async function ProjectDetailPage({ params }: Params) {
     completeness: number;
     version: number;
     _count: { files: number } | null;
+    files: { originalName: string; completeness: number; version: number }[];
   };
   const customDocMap = new Map<string, CustomDocEntry>(
     project.customDocuments.map((d: any) => [d.customTypeKey, {
       completeness: d.completeness,
       version: d.version,
       _count: d._count,
+      files: (d.files ?? []).map((f: any) => ({ originalName: f.originalName, completeness: f.completeness, version: f.version })),
     }])
   );
 
+  // グローバルカテゴリは、このプロジェクトに実際のドキュメントが存在する場合のみ含める。
+  // （全プロジェクト共有のグローバルカテゴリを無条件表示すると、一括インポート等で
+  //   大量に作られたカテゴリが無関係なプロジェクトにも全て表示されてしまうため）
+  // プロジェクト固有タイプは管理者が明示的に追加したものなので常に含める。
+  const visibleGlobalCustomTypes = globalCustomTypes.filter((t: any) => customDocMap.has(t.key));
+
   const customDocTypes = [
-    ...globalCustomTypes.map((t: any) => ({ key: t.key, label: t.label })),
+    ...visibleGlobalCustomTypes.map((t: any) => ({ key: t.key, label: t.label })),
     ...projectCustomTypes.map((t: any) => ({ key: t.key, label: t.label })),
   ].map((t: any) => {
     const doc = customDocMap.get(t.key);
@@ -91,6 +100,7 @@ export default async function ProjectDetailPage({ params }: Params) {
       completeness: doc?.completeness ?? 0,
       version: doc?.version ?? 0,
       fileCount: doc?._count?.files ?? 0,
+      files: doc?.files ?? [],
     };
   });
 
