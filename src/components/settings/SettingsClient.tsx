@@ -34,23 +34,30 @@ type ModelStat = {
   costUsd: number;
 };
 
+type FeatureStat = {
+  label: string;
+  count: number;
+  costUsd: number;
+};
+
 type RecentItem = {
   id: string;
-  projectId: string;
+  projectId: string | null;
   projectName: string;
   createdAt: string;
-  executionMode: string;
+  feature: string;
+  featureLabel: string;
   modelUsed: string | null;
   inputTokens: number | null;
   outputTokens: number | null;
   estimatedCostUsd: number;
   overallScore: number | null;
-  loopCount: number | null;
 };
 
 type UsageData = {
   summary: UsageSummary;
   byModel: Record<string, ModelStat>;
+  byFeature: Record<string, FeatureStat>;
   monthlyBreakdown: MonthlyBucket[];
   recentList: RecentItem[];
   generatedAt: string;
@@ -325,6 +332,24 @@ function ApiCostDashboard() {
         </div>
       </div>
 
+      {/* ── 機能別内訳（新規） ── */}
+      {Object.keys(data.byFeature).length > 0 && (
+        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">🧩 機能別内訳</h3>
+          <div className="space-y-2">
+            {Object.entries(data.byFeature).map(([key, stat]) => (
+              <div key={key} className="flex items-center justify-between border border-slate-100 rounded-lg px-3 py-2">
+                <span className="text-xs font-medium text-slate-700">{stat.label}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-slate-400">{stat.count}回</span>
+                  <span className="text-xs font-bold text-emerald-600">{fmtUsd(stat.costUsd)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── モデル別統計 ── */}
       {Object.keys(data.byModel).length > 0 && (
         <div className="bg-white border border-slate-200 rounded-xl p-4">
@@ -371,7 +396,7 @@ function ApiCostDashboard() {
               <tr className="bg-slate-50">
                 <th className="text-left px-4 py-2.5 font-medium text-slate-500 text-[10px] uppercase tracking-wide">日時</th>
                 <th className="text-left px-4 py-2.5 font-medium text-slate-500 text-[10px] uppercase tracking-wide">プロジェクト</th>
-                <th className="text-left px-4 py-2.5 font-medium text-slate-500 text-[10px] uppercase tracking-wide">モード</th>
+                <th className="text-left px-4 py-2.5 font-medium text-slate-500 text-[10px] uppercase tracking-wide">機能</th>
                 <th className="text-right px-4 py-2.5 font-medium text-slate-500 text-[10px] uppercase tracking-wide">Input</th>
                 <th className="text-right px-4 py-2.5 font-medium text-slate-500 text-[10px] uppercase tracking-wide">Output</th>
                 <th className="text-right px-4 py-2.5 font-medium text-slate-500 text-[10px] uppercase tracking-wide">コスト</th>
@@ -388,12 +413,8 @@ function ApiCostDashboard() {
                     {item.projectName}
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                      item.executionMode === "manual"
-                        ? "bg-purple-100 text-purple-700"
-                        : "bg-blue-100 text-blue-700"
-                    }`}>
-                      {item.executionMode === "manual" ? "手動" : "AI"}
+                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">
+                      {item.featureLabel}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-right font-mono text-slate-600">

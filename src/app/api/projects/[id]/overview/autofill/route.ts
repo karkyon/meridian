@@ -12,6 +12,7 @@ import { writeAuditLog, getClientIp, getUserAgent } from "@/lib/audit";
 import { getClaudeApiKey } from "@/lib/claude-helpers";
 import { getGitHubPat, parseRepoFromUrl, fetchGitHubRepoInfo } from "@/lib/github-helpers";
 import { scanFieldsForSecrets, scanEnvVarsForSecrets } from "@/lib/secret-scan";
+import { logApiUsage } from "@/lib/usage-log";
 import Anthropic from "@anthropic-ai/sdk";
 
 type Params = { params: { id: string } };
@@ -301,6 +302,14 @@ ${attachmentsContext || "（なし）"}
       raw = res.content[0].type === "text" ? res.content[0].text : "{}";
       inputTokens = res.usage.input_tokens;
       outputTokens = res.usage.output_tokens;
+      // API使用量を記録（コスト画面に反映させるため。失敗してもメイン処理は継続）
+      await logApiUsage({
+        feature: "overview_autofill",
+        projectId: params.id,
+        model: MODEL,
+        inputTokens,
+        outputTokens,
+      });
     } catch (e) {
       return NextResponse.json(
         { error: "CLAUDE_API_ERROR", message: e instanceof Error ? e.message : "unknown" },

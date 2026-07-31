@@ -20,6 +20,7 @@ const navItems = [
       { label: "RAG Q&A", href: "/intelligence/qa", icon: "💬" },
       { label: "相乗効果マップ", href: "/intelligence/synergy", icon: "🔗" },
       { label: "技術ヘルス", href: "/intelligence/health", icon: "❤️" },
+      { label: "ポートフォリオ分析", href: "/intelligence/portfolio", icon: "📊" },
     ],
   },
 ];

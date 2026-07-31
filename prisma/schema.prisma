@@ -202,6 +202,7 @@ model User {
   createdProjects         Project[]            @relation("ProjectCreatedBy")
   savedDocuments          Document[]           @relation("DocumentUpdatedBy")
   priorityScores          PriorityScore[]      @relation("PriorityCreatedBy")
+  businessAnalyses        BusinessAnalysis[]   @relation("BusinessAnalysisCreatedBy")
   uploadedAttachments     ProjectAttachment[]  @relation("AttachmentCreatedBy")
   createdCustomDocs       CustomDocument[]     @relation("CustomDocCreatedBy")
   uploadedCustomFiles     CustomDocumentFile[] @relation("CustomDocFileCreatedBy")
@@ -298,6 +299,7 @@ model Project {
   progressCache   Decimal       @default(0) @map("progress_cache") @db.Decimal(5, 2)
   docCompleteness Decimal       @default(0) @map("doc_completeness") @db.Decimal(5, 2)
   healthScore     Int?          @map("health_score")
+  businessScore   Int?          @map("business_score")
   delayRisk       DelayRisk?    @map("delay_risk")
   createdBy       String?       @map("created_by") @db.Uuid
   archivedAt      DateTime?     @map("archived_at") @db.Timestamptz
@@ -317,6 +319,8 @@ model Project {
   customDocuments       CustomDocument[]
   techStacks            ProjectTechStack[]
   analyses              ProjectAnalysis[]
+  businessAnalyses      BusinessAnalysis[]
+  apiUsageLogs          ApiUsageLog[]
 
   @@index([status], map: "idx_projects_status")
   @@index([priorityOrder], map: "idx_projects_priority_order")
@@ -453,6 +457,71 @@ model HealthScore {
 
   @@index([projectId], map: "idx_health_scores_project_id")
   @@map("health_scores")
+}
+
+// ── 事業性分析（ビジネス viability 評価） ──────────────────────────
+enum BusinessCategory {
+  profitability      // 収益性
+  competitive_moat   // 競合優位性・参入障壁
+  risk                // リスク（スコアはリスクの低さ＝健全性を表す。高いほど良い）
+  durability          // 永続性
+  scalability         // 展開・拡張性
+  feasibility         // 実現可能性
+  time_to_revenue     // 収益化までの期間（スコアは速さを表す。高いほど良い）
+  market_fit          // 市場適合性
+
+  @@map("business_category")
+}
+
+model BusinessAnalysis {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId    String   @map("project_id") @db.Uuid
+  overallScore Int      @map("overall_score")
+  summary      String?  @db.Text
+  aiSuggested  Boolean  @default(false) @map("ai_suggested")
+  createdBy    String?  @map("created_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project    Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator    User?                      @relation("BusinessAnalysisCreatedBy", fields: [createdBy], references: [id])
+  categories BusinessAnalysisCategory[]
+
+  @@index([projectId, createdAt], map: "idx_business_analyses_project_id")
+  @@map("business_analyses")
+}
+
+model BusinessAnalysisCategory {
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  analysisId         String           @map("analysis_id") @db.Uuid
+  category           BusinessCategory
+  score              Int
+  rationale          String?          @db.Text
+  advice             String?          @db.Text
+  aiSuggestedScore   Int?             @map("ai_suggested_score")
+  manuallyOverridden Boolean          @default(false) @map("manually_overridden")
+
+  analysis BusinessAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@unique([analysisId, category])
+  @@map("business_analysis_categories")
+}
+
+// ── AI機能横断のAPI使用量ログ（コスト集計の対象を全AI機能に拡張） ──────
+model ApiUsageLog {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  feature          String   @db.VarChar(50)   // "business_analysis" | "overview_autofill" 等
+  projectId        String?  @map("project_id") @db.Uuid
+  model            String   @db.VarChar(50)
+  inputTokens      Int      @map("input_tokens")
+  outputTokens     Int      @map("output_tokens")
+  estimatedCostUsd Decimal  @map("estimated_cost_usd") @db.Decimal(10, 6)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt], map: "idx_api_usage_logs_created_at")
+  @@index([feature], map: "idx_api_usage_logs_feature")
+  @@map("api_usage_logs")
 }
 
 model WeeklySummary {
